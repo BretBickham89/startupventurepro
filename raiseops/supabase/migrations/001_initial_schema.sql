@@ -4,7 +4,7 @@ create extension if not exists "uuid-ossp";
 -- ============================================================
 -- PROFILES TABLE
 -- ============================================================
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
   company_name text,
@@ -22,7 +22,7 @@ create table public.profiles (
 -- ============================================================
 -- INVESTORS TABLE (shared/global)
 -- ============================================================
-create table public.investors (
+create table if not exists public.investors (
   id uuid default gen_random_uuid() primary key,
   name text not null,
   firm text,
@@ -45,7 +45,7 @@ create table public.investors (
 -- ============================================================
 -- INVESTOR RELATIONS (CRM) - per user
 -- ============================================================
-create table public.investor_relations (
+create table if not exists public.investor_relations (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users on delete cascade not null,
   investor_id uuid references public.investors on delete cascade not null,
@@ -62,7 +62,7 @@ create table public.investor_relations (
 -- ============================================================
 -- MEETINGS
 -- ============================================================
-create table public.meetings (
+create table if not exists public.meetings (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users on delete cascade not null,
   investor_id uuid references public.investors,
@@ -79,7 +79,7 @@ create table public.meetings (
 -- ============================================================
 -- CONTENT POSTS
 -- ============================================================
-create table public.content_posts (
+create table if not exists public.content_posts (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users on delete cascade not null,
   title text not null,
@@ -103,38 +103,46 @@ alter table public.investor_relations enable row level security;
 alter table public.meetings enable row level security;
 alter table public.content_posts enable row level security;
 
--- Profiles: users can only see/edit their own
-create policy "Users can view own profile"
-  on public.profiles for select
-  using (auth.uid() = id);
+-- Profiles policies
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='profiles' and policyname='Users can view own profile') then
+    create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='profiles' and policyname='Users can update own profile') then
+    create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='profiles' and policyname='Users can insert own profile') then
+    create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
+  end if;
+end $$;
 
-create policy "Users can update own profile"
-  on public.profiles for update
-  using (auth.uid() = id);
+-- Investors policy
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='investors' and policyname='Authenticated users can view investors') then
+    create policy "Authenticated users can view investors" on public.investors for select using (auth.role() = 'authenticated');
+  end if;
+end $$;
 
-create policy "Users can insert own profile"
-  on public.profiles for insert
-  with check (auth.uid() = id);
+-- Investor relations policy
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='investor_relations' and policyname='Users can manage own investor relations') then
+    create policy "Users can manage own investor relations" on public.investor_relations for all using (auth.uid() = user_id);
+  end if;
+end $$;
 
--- Investors: everyone authenticated can read
-create policy "Authenticated users can view investors"
-  on public.investors for select
-  using (auth.role() = 'authenticated');
+-- Meetings policy
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='meetings' and policyname='Users can manage own meetings') then
+    create policy "Users can manage own meetings" on public.meetings for all using (auth.uid() = user_id);
+  end if;
+end $$;
 
--- Investor relations: own data only
-create policy "Users can manage own investor relations"
-  on public.investor_relations for all
-  using (auth.uid() = user_id);
-
--- Meetings: own data only
-create policy "Users can manage own meetings"
-  on public.meetings for all
-  using (auth.uid() = user_id);
-
--- Content posts: own data only
-create policy "Users can manage own content"
-  on public.content_posts for all
-  using (auth.uid() = user_id);
+-- Content posts policy
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='content_posts' and policyname='Users can manage own content') then
+    create policy "Users can manage own content" on public.content_posts for all using (auth.uid() = user_id);
+  end if;
+end $$;
 
 -- ============================================================
 -- UPDATED_AT TRIGGER FUNCTION
@@ -147,14 +155,17 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at
   before update on public.profiles
   for each row execute procedure public.handle_updated_at();
 
+drop trigger if exists investor_relations_updated_at on public.investor_relations;
 create trigger investor_relations_updated_at
   before update on public.investor_relations
   for each row execute procedure public.handle_updated_at();
 
+drop trigger if exists content_posts_updated_at on public.content_posts;
 create trigger content_posts_updated_at
   before update on public.content_posts
   for each row execute procedure public.handle_updated_at();
@@ -170,11 +181,13 @@ begin
     new.id,
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'company_name'
-  );
+  )
+  on conflict (id) do nothing;
   return new;
 end;
 $$ language plpgsql security definer;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
@@ -182,13 +195,13 @@ create trigger on_auth_user_created
 -- ============================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================
-create index idx_investor_relations_user_id on public.investor_relations(user_id);
-create index idx_investor_relations_investor_id on public.investor_relations(investor_id);
-create index idx_investor_relations_status on public.investor_relations(status);
-create index idx_meetings_user_id on public.meetings(user_id);
-create index idx_meetings_meeting_date on public.meetings(meeting_date);
-create index idx_content_posts_user_id on public.content_posts(user_id);
-create index idx_content_posts_status on public.content_posts(status);
-create index idx_content_posts_scheduled_at on public.content_posts(scheduled_at);
-create index idx_investors_investor_type on public.investors(investor_type);
-create index idx_investors_match_score on public.investors(match_score desc);
+create index if not exists idx_investor_relations_user_id on public.investor_relations(user_id);
+create index if not exists idx_investor_relations_investor_id on public.investor_relations(investor_id);
+create index if not exists idx_investor_relations_status on public.investor_relations(status);
+create index if not exists idx_meetings_user_id on public.meetings(user_id);
+create index if not exists idx_meetings_meeting_date on public.meetings(meeting_date);
+create index if not exists idx_content_posts_user_id on public.content_posts(user_id);
+create index if not exists idx_content_posts_status on public.content_posts(status);
+create index if not exists idx_content_posts_scheduled_at on public.content_posts(scheduled_at);
+create index if not exists idx_investors_investor_type on public.investors(investor_type);
+create index if not exists idx_investors_match_score on public.investors(match_score desc);
