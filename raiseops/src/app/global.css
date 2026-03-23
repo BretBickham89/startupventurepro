@@ -1,0 +1,99 @@
+/* CSS Custom Properties - Brand Colors */
+:root {
+  --color-primary: #5D87FF;
+  --color-primary-light: #ECF2FF;
+  --color-primary-dark: #4570EA;
+  --color-secondary: #49BEFF;
+  --color-secondary-light: #E8F7FF;
+  --color-accent: #FA896B;
+  --color-dark-bg: #2A3547;
+  --color-success: #13DEB9;
+  --color-warning: #FFAE1F;
+  --color-error: #FA896B;
+  --color-bg-default: #F6F8FB;
+  --color-bg-paper: #ffffff;
+  --color-text-primary: #2A3547;
+  --color-text-secondary: #5A6A85;
+  --color-divider: #e5eaef;
+  --sidebar-width: 270px;
+  --header-height: 64px;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--color-bg-default);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-default);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-divider);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+a {
+  transition: color 0.2s ease;
+}
+
+/* Image defaults */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Remove default list styles when needed */
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+/* Utility classes */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
