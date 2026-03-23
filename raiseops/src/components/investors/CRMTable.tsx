@@ -142,7 +142,7 @@ function formatAmount(amount: number | null): string {
 }
 
 interface CRMTableProps {
-  statusFilter?: CRMStatus | 'all'
+  statusFilter?: CRMStatus | 'all' | 'active' | 'closed' | 'passed'
 }
 
 export default function CRMTable({ statusFilter = 'all' }: CRMTableProps) {
