@@ -12,11 +12,27 @@ import {
   FormControl,
   Alert,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Avatar,
+  Stack,
+  Divider,
 } from '@mui/material'
-import { IconBuildingBank } from '@tabler/icons-react'
+import { IconBuildingBank, IconMapPin, IconBriefcase, IconMail, IconBrandLinkedin, IconX } from '@tabler/icons-react'
 import InvestorCard from '@/components/investors/InvestorCard'
 import InvestorFilters, { type FilterState } from '@/components/investors/InvestorFilters'
 import type { Investor } from '@/lib/supabase/types'
+
+const TYPE_LABELS: Record<string, string> = {
+  angel: 'Angel Investor',
+  vc: 'Venture Capital',
+  'family-office': 'Family Office',
+  corporate: 'Corporate VC',
+  accelerator: 'Accelerator',
+}
 
 const MOCK_INVESTORS: Investor[] = [
   {
@@ -238,6 +254,8 @@ export default function InvestorsPage() {
   })
   const [sortBy, setSortBy] = useState<SortOption>('match_score')
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: '' })
+  const [viewingInvestor, setViewingInvestor] = useState<Investor | null>(null)
+  const [savedInvestors, setSavedInvestors] = useState<Set<string>>(new Set())
 
   const filteredInvestors = useMemo(() => {
     let result = [...MOCK_INVESTORS]
@@ -283,6 +301,7 @@ export default function InvestorsPage() {
   }, [filters, sortBy])
 
   const handleSaveToCRM = (investor: Investor) => {
+    setSavedInvestors((prev) => new Set([...prev, investor.id]))
     setSnackbar({ open: true, message: `${investor.name} added to your CRM pipeline!` })
   }
 
@@ -384,9 +403,8 @@ export default function InvestorsPage() {
                   <InvestorCard
                     investor={investor}
                     onSaveToCRM={handleSaveToCRM}
-                    onViewProfile={(inv) =>
-                      setSnackbar({ open: true, message: `Viewing ${inv.name}'s full profile...` })
-                    }
+                    onViewProfile={(inv) => setViewingInvestor(inv)}
+                    isSaved={savedInvestors.has(investor.id)}
                   />
                 </Grid>
               ))}
@@ -402,6 +420,190 @@ export default function InvestorsPage() {
         message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
+
+      {/* Investor Profile Modal */}
+      <Dialog
+        open={Boolean(viewingInvestor)}
+        onClose={() => setViewingInvestor(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}
+      >
+        {viewingInvestor && (
+          <>
+            <DialogTitle sx={{ pb: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Avatar
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(viewingInvestor.name)}&background=ECF2FF&color=5D87FF&bold=true&size=80`}
+                  alt={viewingInvestor.name}
+                  sx={{ width: 64, height: 64, borderRadius: '14px', border: '2px solid #e5eaef' }}
+                />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#2A3547' }}>
+                    {viewingInvestor.name}
+                  </Typography>
+                  {viewingInvestor.firm && (
+                    <Typography variant="body2" sx={{ color: '#5A6A85', fontWeight: 500 }}>
+                      {viewingInvestor.firm}
+                    </Typography>
+                  )}
+                  <Chip
+                    label={TYPE_LABELS[viewingInvestor.investor_type] ?? viewingInvestor.investor_type}
+                    size="small"
+                    sx={{ mt: 0.5, bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 600, fontSize: '0.7rem' }}
+                  />
+                </Box>
+                <Box
+                  sx={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: '50%',
+                    bgcolor: viewingInvestor.match_score >= 80 ? '#E6FFFA' : '#FEF5E5',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `2px solid ${viewingInvestor.match_score >= 80 ? '#13DEB9' : '#FFAE1F'}`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: viewingInvestor.match_score >= 80 ? '#13DEB9' : '#FFAE1F', lineHeight: 1 }}>
+                    {viewingInvestor.match_score}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.6rem', color: '#7C8FAC', lineHeight: 1 }}>fit</Typography>
+                </Box>
+              </Box>
+            </DialogTitle>
+
+            <DialogContent sx={{ pt: 2 }}>
+              {viewingInvestor.bio && (
+                <Typography variant="body2" sx={{ color: '#5A6A85', lineHeight: 1.7, mb: 2 }}>
+                  {viewingInvestor.bio}
+                </Typography>
+              )}
+
+              <Divider sx={{ mb: 2 }} />
+
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                {viewingInvestor.location && (
+                  <Grid size={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconMapPin size={16} color="#7C8FAC" />
+                      <Box>
+                        <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Location</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>{viewingInvestor.location}</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+                {viewingInvestor.portfolio_count && (
+                  <Grid size={6}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconBriefcase size={16} color="#7C8FAC" />
+                      <Box>
+                        <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Portfolio</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>{viewingInvestor.portfolio_count} companies</Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+                {viewingInvestor.investment_range_min && (
+                  <Grid size={6}>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Check Size</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>
+                        {viewingInvestor.investment_range_min >= 1000000
+                          ? `$${(viewingInvestor.investment_range_min / 1000000).toFixed(1)}M`
+                          : `$${(viewingInvestor.investment_range_min / 1000).toFixed(0)}K`}
+                        {' – '}
+                        {viewingInvestor.investment_range_max
+                          ? viewingInvestor.investment_range_max >= 1000000
+                            ? `$${(viewingInvestor.investment_range_max / 1000000).toFixed(1)}M`
+                            : `$${(viewingInvestor.investment_range_max / 1000).toFixed(0)}K`
+                          : ''}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" sx={{ color: '#7C8FAC', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
+                  Focus Areas
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                  {viewingInvestor.focus_areas.map((area) => (
+                    <Chip key={area} label={area} size="small" sx={{ bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 500, fontSize: '0.75rem' }} />
+                  ))}
+                </Stack>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" sx={{ color: '#7C8FAC', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
+                  Stages
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.75}>
+                  {viewingInvestor.funding_stages.map((stage) => (
+                    <Chip key={stage} label={stage.charAt(0).toUpperCase() + stage.slice(1).replace('-', ' ')} size="small" variant="outlined" sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }} />
+                  ))}
+                </Stack>
+              </Box>
+
+              {(viewingInvestor.email || viewingInvestor.linkedin_url) && (
+                <>
+                  <Divider sx={{ mt: 2, mb: 2 }} />
+                  <Stack direction="row" spacing={1.5}>
+                    {viewingInvestor.email && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<IconMail size={15} />}
+                        href={`mailto:${viewingInvestor.email}`}
+                        sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }}
+                      >
+                        {viewingInvestor.email}
+                      </Button>
+                    )}
+                    {viewingInvestor.linkedin_url && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<IconBrandLinkedin size={15} />}
+                        href={viewingInvestor.linkedin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ borderColor: '#0077B5', color: '#0077B5', fontSize: '0.75rem' }}
+                      >
+                        LinkedIn
+                      </Button>
+                    )}
+                  </Stack>
+                </>
+              )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+              <Button onClick={() => setViewingInvestor(null)} sx={{ color: '#5A6A85' }}>Close</Button>
+              {!savedInvestors.has(viewingInvestor.id) ? (
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    handleSaveToCRM(viewingInvestor)
+                    setViewingInvestor(null)
+                  }}
+                  sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+                >
+                  + Save to CRM
+                </Button>
+              ) : (
+                <Button variant="outlined" disabled sx={{ borderColor: '#13DEB9', color: '#13DEB9' }}>
+                  ✓ Saved to CRM
+                </Button>
+              )}
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   )
 }

@@ -13,13 +13,14 @@ import {
   Stack,
   Divider,
 } from '@mui/material'
-import { IconMapPin, IconBriefcase, IconPlus } from '@tabler/icons-react'
+import { IconMapPin, IconBriefcase, IconPlus, IconCheck } from '@tabler/icons-react'
 import type { Investor } from '@/lib/supabase/types'
 
 interface InvestorCardProps {
   investor: Investor
   onSaveToCRM?: (investor: Investor) => void
   onViewProfile?: (investor: Investor) => void
+  isSaved?: boolean
 }
 
 function MatchScore({ score }: { score: number }) {
@@ -57,7 +58,7 @@ const TYPE_LABELS: Record<string, string> = {
   accelerator: 'Accelerator',
 }
 
-export default function InvestorCard({ investor, onSaveToCRM, onViewProfile }: InvestorCardProps) {
+export default function InvestorCard({ investor, onSaveToCRM, onViewProfile, isSaved = false }: InvestorCardProps) {
   const formatAmount = (amount: number | null) => {
     if (!amount) return null
     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
@@ -228,18 +229,18 @@ export default function InvestorCard({ investor, onSaveToCRM, onViewProfile }: I
           <Button
             size="small"
             variant="outlined"
-            startIcon={<IconPlus size={14} />}
-            onClick={() => onSaveToCRM?.(investor)}
+            startIcon={isSaved ? <IconCheck size={14} /> : <IconPlus size={14} />}
+            onClick={() => !isSaved && onSaveToCRM?.(investor)}
             sx={{
               flex: 1,
-              borderColor: '#5D87FF',
-              color: '#5D87FF',
               fontSize: '0.75rem',
               py: 0.75,
-              '&:hover': { bgcolor: '#ECF2FF' },
+              ...(isSaved
+                ? { borderColor: '#13DEB9', color: '#13DEB9', bgcolor: '#E6FFFA', '&:hover': { bgcolor: '#E6FFFA' }, cursor: 'default' }
+                : { borderColor: '#5D87FF', color: '#5D87FF', '&:hover': { bgcolor: '#ECF2FF' } }),
             }}
           >
-            Save to CRM
+            {isSaved ? 'Saved' : 'Save to CRM'}
           </Button>
           <Button
             size="small"

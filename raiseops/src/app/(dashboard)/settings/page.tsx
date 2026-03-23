@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   Box,
   Typography,
@@ -74,22 +75,50 @@ export default function SettingsPage() {
 
   // Profile state
   const [profile, setProfile] = useState({
-    fullName: 'Jane Doe',
-    email: 'jane@acmecorp.com',
-    bio: 'Founder & CEO at Acme Corp. Building the future of enterprise software. Ex-Google. MIT CS \'18.',
-    website: 'https://acmecorp.com',
-    linkedin: 'https://linkedin.com/in/janedoe',
-    twitter: '@janedoe',
+    fullName: '',
+    email: '',
+    bio: '',
+    website: '',
+    linkedin: '',
+    twitter: '',
   })
 
   // Company state
   const [company, setCompany] = useState({
-    name: 'Acme Corp',
+    name: '',
     industry: 'SaaS',
-    fundingStage: 'seed',
-    headquarters: 'San Francisco, CA',
-    teamSize: '8',
+    fundingStage: '',
+    headquarters: '',
+    teamSize: '1-5',
   })
+
+  // Load from Supabase auth
+  useEffect(() => {
+    const loadUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const meta = user.user_metadata ?? {}
+      setProfile((prev) => ({
+        ...prev,
+        fullName: meta.full_name ?? meta.name ?? '',
+        email: user.email ?? '',
+        bio: meta.bio ?? prev.bio,
+        website: meta.website ?? prev.website,
+        linkedin: meta.linkedin_url ?? prev.linkedin,
+        twitter: meta.twitter_handle ?? prev.twitter,
+      }))
+      setCompany((prev) => ({
+        ...prev,
+        name: meta.company_name ?? prev.name,
+        fundingStage: meta.funding_stage ?? prev.fundingStage,
+        industry: meta.industry ?? prev.industry,
+        headquarters: meta.headquarters ?? prev.headquarters,
+        teamSize: meta.team_size ?? prev.teamSize,
+      }))
+    }
+    loadUser()
+  }, [])
 
   // Notifications state
   const [notifications, setNotifications] = useState({
@@ -110,9 +139,28 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSaving(false)
-    setSnackbar({ open: true, message: 'Settings saved successfully!', severity: 'success' })
+    try {
+      const supabase = createClient()
+      await supabase.auth.updateUser({
+        data: {
+          full_name: profile.fullName,
+          bio: profile.bio,
+          website: profile.website,
+          linkedin_url: profile.linkedin,
+          twitter_handle: profile.twitter,
+          company_name: company.name,
+          industry: company.industry,
+          funding_stage: company.fundingStage,
+          headquarters: company.headquarters,
+          team_size: company.teamSize,
+        },
+      })
+      setSnackbar({ open: true, message: 'Settings saved successfully!', severity: 'success' })
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to save settings.', severity: 'error' })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handlePasswordChange = async () => {
@@ -183,7 +231,9 @@ export default function SettingsPage() {
                       border: '3px solid #ECF2FF',
                     }}
                   >
-                    JD
+                    {profile.fullName
+                      ? profile.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+                      : '?'}
                   </Avatar>
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547', mb: 1 }}>

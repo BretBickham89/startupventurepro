@@ -71,11 +71,19 @@ export default function ContentCalendarPage() {
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs())
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
   const [selectedPost, setSelectedPost] = useState<ScheduledPost | null>(null)
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null)
   const [newPostOpen, setNewPostOpen] = useState(false)
+  const [customPosts, setCustomPosts] = useState<ScheduledPost[]>([])
+  const [newPost, setNewPost] = useState({ title: '', content: '', platform: 'linkedin' as PostPlatform, date: '' })
+  const [editForm, setEditForm] = useState({ title: '', content: '', platform: 'linkedin' as PostPlatform, date: '', status: 'draft' as PostStatus })
 
   const year = currentDate.year()
   const month = currentDate.month() + 1
-  const posts = generateMockPosts(year, month)
+  const basePosts = generateMockPosts(year, month)
+  const posts = [
+    ...basePosts.map(p => customPosts.find(c => c.id === p.id) ?? p),
+    ...customPosts.filter(c => !basePosts.some(b => b.id === c.id) && c.date.startsWith(`${year}-${String(month).padStart(2, '0')}`)),
+  ]
 
   const firstDayOfMonth = currentDate.startOf('month').day()
   const daysInMonth = currentDate.daysInMonth()
@@ -427,7 +435,21 @@ export default function ContentCalendarPage() {
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
               <Button onClick={() => setSelectedPost(null)} sx={{ color: '#5A6A85' }}>Close</Button>
-              <Button variant="contained" sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  setEditForm({
+                    title: selectedPost.title,
+                    content: selectedPost.content,
+                    platform: selectedPost.platform,
+                    date: selectedPost.date,
+                    status: selectedPost.status,
+                  })
+                  setEditingPost(selectedPost)
+                  setSelectedPost(null)
+                }}
+                sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+              >
                 Edit Post
               </Button>
             </DialogActions>
@@ -438,7 +460,7 @@ export default function ContentCalendarPage() {
       {/* New Post Dialog */}
       <Dialog
         open={newPostOpen}
-        onClose={() => setNewPostOpen(false)}
+        onClose={() => { setNewPostOpen(false); setNewPost({ title: '', content: '', platform: 'linkedin', date: '' }) }}
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: '12px' } }}
@@ -446,24 +468,159 @@ export default function ContentCalendarPage() {
         <DialogTitle sx={{ fontWeight: 700 }}>Create New Post</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField label="Post Title" fullWidth size="small" />
-            <TextField label="Content" fullWidth multiline rows={4} />
-            <TextField label="Platform" select fullWidth size="small" defaultValue="linkedin">
+            <TextField
+              label="Post Title"
+              fullWidth
+              size="small"
+              value={newPost.title}
+              onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+            />
+            <TextField
+              label="Content"
+              fullWidth
+              multiline
+              rows={4}
+              value={newPost.content}
+              onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+            />
+            <TextField
+              label="Platform"
+              select
+              fullWidth
+              size="small"
+              value={newPost.platform}
+              onChange={(e) => setNewPost({ ...newPost, platform: e.target.value as PostPlatform })}
+            >
               {Object.entries(PLATFORM_CONFIG).map(([key, config]) => (
                 <MenuItem key={key} value={key}>{config.label}</MenuItem>
               ))}
             </TextField>
-            <TextField label="Schedule Date" type="date" fullWidth size="small" InputLabelProps={{ shrink: true }} />
+            <TextField
+              label="Schedule Date"
+              type="date"
+              fullWidth
+              size="small"
+              value={newPost.date}
+              onChange={(e) => setNewPost({ ...newPost, date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setNewPostOpen(false)} sx={{ color: '#5A6A85' }}>Cancel</Button>
+          <Button onClick={() => { setNewPostOpen(false); setNewPost({ title: '', content: '', platform: 'linkedin', date: '' }) }} sx={{ color: '#5A6A85' }}>Cancel</Button>
           <Button
             variant="contained"
-            onClick={() => setNewPostOpen(false)}
+            disabled={!newPost.title || !newPost.date}
+            onClick={() => {
+              const post: ScheduledPost = {
+                id: `custom-${Date.now()}`,
+                title: newPost.title,
+                content: newPost.content,
+                platform: newPost.platform,
+                date: newPost.date,
+                status: 'scheduled',
+              }
+              setCustomPosts((prev) => [...prev, post])
+              setNewPostOpen(false)
+              setNewPost({ title: '', content: '', platform: 'linkedin', date: '' })
+            }}
             sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
           >
             Schedule Post
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Post Dialog */}
+      <Dialog
+        open={Boolean(editingPost)}
+        onClose={() => setEditingPost(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Edit Post</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Post Title"
+              fullWidth
+              size="small"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+            />
+            <TextField
+              label="Content"
+              fullWidth
+              multiline
+              rows={4}
+              value={editForm.content}
+              onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+            />
+            <TextField
+              label="Platform"
+              select
+              fullWidth
+              size="small"
+              value={editForm.platform}
+              onChange={(e) => setEditForm({ ...editForm, platform: e.target.value as PostPlatform })}
+            >
+              {Object.entries(PLATFORM_CONFIG).map(([key, config]) => (
+                <MenuItem key={key} value={key}>{config.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Schedule Date"
+              type="date"
+              fullWidth
+              size="small"
+              value={editForm.date}
+              onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Status"
+              select
+              fullWidth
+              size="small"
+              value={editForm.status}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value as PostStatus })}
+            >
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="scheduled">Scheduled</MenuItem>
+              <MenuItem value="published">Published</MenuItem>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditingPost(null)} sx={{ color: '#5A6A85' }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (!editingPost) return
+              const updated: ScheduledPost = {
+                ...editingPost,
+                title: editForm.title,
+                content: editForm.content,
+                platform: editForm.platform,
+                date: editForm.date,
+                status: editForm.status,
+              }
+              setCustomPosts((prev) => {
+                const existing = prev.findIndex((p) => p.id === editingPost.id)
+                if (existing >= 0) {
+                  const next = [...prev]
+                  next[existing] = updated
+                  return next
+                }
+                return [...prev, updated]
+              })
+              setEditingPost(null)
+              setSelectedPost(null)
+            }}
+            sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+          >
+            Save Changes
           </Button>
         </DialogActions>
       </Dialog>

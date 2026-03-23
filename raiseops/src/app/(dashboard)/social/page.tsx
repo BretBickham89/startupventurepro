@@ -20,6 +20,12 @@ import {
   Divider,
   Stack,
   LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
 } from '@mui/material'
 import {
   IconBrandLinkedin,
@@ -174,17 +180,30 @@ const STATUS_CONFIG = {
 
 export default function SocialMediaPage() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<Set<string>>(new Set(['linkedin']))
+  const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null)
+  const [createPostOpen, setCreatePostOpen] = useState(false)
+  const [viewingPost, setViewingPost] = useState<Post | null>(null)
+  const [newPost, setNewPost] = useState({ platform: 'linkedin', content: '', scheduleDate: '' })
+  const [userPosts, setUserPosts] = useState<Post[]>([])
 
-  const handleConnect = (platformId: string) => {
-    setConnectedPlatforms((prev) => {
-      const next = new Set(prev)
-      if (next.has(platformId)) {
-        next.delete(platformId)
-      } else {
-        next.add(platformId)
-      }
-      return next
-    })
+  const allPosts = [...userPosts, ...RECENT_POSTS]
+
+  const handleConnect = (platform: Platform) => {
+    const isConnected = connectedPlatforms.has(platform.id)
+    if (isConnected) {
+      setConnectedPlatforms((prev) => {
+        const next = new Set(prev)
+        next.delete(platform.id)
+        return next
+      })
+    } else {
+      setConnectingPlatform(platform)
+    }
+  }
+
+  const confirmConnect = (platformId: string) => {
+    setConnectedPlatforms((prev) => new Set([...prev, platformId]))
+    setConnectingPlatform(null)
   }
 
   return (
@@ -211,6 +230,7 @@ export default function SocialMediaPage() {
         <Button
           variant="contained"
           startIcon={<IconPlus size={18} />}
+          onClick={() => setCreatePostOpen(true)}
           sx={{
             background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
             boxShadow: '0 4px 12px rgba(93, 135, 255, 0.3)',
@@ -314,7 +334,7 @@ export default function SocialMediaPage() {
                         size="small"
                         variant={isConnected ? 'contained' : 'outlined'}
                         startIcon={isConnected ? <IconCheck size={14} /> : <IconLink size={14} />}
-                        onClick={() => handleConnect(platform.id)}
+                        onClick={() => handleConnect(platform)}
                         sx={{
                           fontSize: '0.7rem',
                           py: 0.5,
@@ -401,10 +421,10 @@ export default function SocialMediaPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {RECENT_POSTS.map((post) => {
+                  {allPosts.map((post) => {
                     const statusConfig = STATUS_CONFIG[post.status]
                     return (
-                      <TableRow key={post.id} sx={{ '&:hover': { bgcolor: '#F6F8FB' } }}>
+                      <TableRow key={post.id} onClick={() => setViewingPost(post)} sx={{ '&:hover': { bgcolor: '#F6F8FB' }, cursor: 'pointer' }}>
                         <TableCell sx={{ maxWidth: 280 }}>
                           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
                             <Box
@@ -503,6 +523,214 @@ export default function SocialMediaPage() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Connect Platform Dialog */}
+      <Dialog
+        open={Boolean(connectingPlatform)}
+        onClose={() => setConnectingPlatform(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        {connectingPlatform && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700 }}>Connect {connectingPlatform.name}</DialogTitle>
+            <DialogContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box sx={{ width: 48, height: 48, borderRadius: '12px', bgcolor: connectingPlatform.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: connectingPlatform.color }}>
+                  {connectingPlatform.icon}
+                </Box>
+                <Typography variant="body2" sx={{ color: '#5A6A85' }}>
+                  Connect your {connectingPlatform.name} account to track engagement and schedule posts directly from RaiseOps.
+                </Typography>
+              </Box>
+              <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block', bgcolor: '#F6F8FB', p: 1.5, borderRadius: '8px' }}>
+                Full OAuth integration coming soon. For now, connecting will link your profile for analytics tracking.
+              </Typography>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setConnectingPlatform(null)} sx={{ color: '#5A6A85' }}>Cancel</Button>
+              <Button
+                variant="contained"
+                onClick={() => confirmConnect(connectingPlatform.id)}
+                sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+              >
+                Connect {connectingPlatform.name}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* Create Post Dialog */}
+      <Dialog
+        open={createPostOpen}
+        onClose={() => { setCreatePostOpen(false); setNewPost({ platform: 'linkedin', content: '', scheduleDate: '' }) }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Create Post</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Platform"
+              select
+              fullWidth
+              size="small"
+              value={newPost.platform}
+              onChange={(e) => setNewPost({ ...newPost, platform: e.target.value })}
+            >
+              {PLATFORMS.filter((p) => connectedPlatforms.has(p.id)).map((p) => (
+                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              ))}
+              {PLATFORMS.filter((p) => connectedPlatforms.has(p.id)).length === 0 && (
+                <MenuItem disabled value="">Connect a platform first</MenuItem>
+              )}
+            </TextField>
+            <TextField
+              label="Post Content"
+              fullWidth
+              multiline
+              rows={5}
+              value={newPost.content}
+              onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+              placeholder="Write your post here..."
+              helperText={`${newPost.content.length} characters`}
+            />
+            <TextField
+              label="Schedule Date (optional)"
+              type="date"
+              fullWidth
+              size="small"
+              value={newPost.scheduleDate}
+              onChange={(e) => setNewPost({ ...newPost, scheduleDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setCreatePostOpen(false); setNewPost({ platform: 'linkedin', content: '', scheduleDate: '' }) }} sx={{ color: '#5A6A85' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!newPost.content}
+            onClick={() => {
+              const platform = PLATFORMS.find((p) => p.id === newPost.platform)
+              const post: Post = {
+                id: `user-${Date.now()}`,
+                platform: platform?.name ?? newPost.platform,
+                platformIcon: platform?.icon,
+                platformColor: platform?.color ?? '#5D87FF',
+                content: newPost.content,
+                date: newPost.scheduleDate ? new Date(newPost.scheduleDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Draft',
+                status: 'draft',
+              }
+              setUserPosts((prev) => [post, ...prev])
+              setCreatePostOpen(false)
+              setNewPost({ platform: 'linkedin', content: '', scheduleDate: '' })
+            }}
+            sx={{ borderColor: '#5D87FF', color: '#5D87FF' }}
+          >
+            Save as Draft
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!newPost.content || !newPost.scheduleDate}
+            onClick={() => {
+              const platform = PLATFORMS.find((p) => p.id === newPost.platform)
+              const post: Post = {
+                id: `user-${Date.now()}`,
+                platform: platform?.name ?? newPost.platform,
+                platformIcon: platform?.icon,
+                platformColor: platform?.color ?? '#5D87FF',
+                content: newPost.content,
+                date: new Date(newPost.scheduleDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                status: 'scheduled',
+              }
+              setUserPosts((prev) => [post, ...prev])
+              setCreatePostOpen(false)
+              setNewPost({ platform: 'linkedin', content: '', scheduleDate: '' })
+            }}
+            sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+          >
+            Schedule Post
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Post Detail Dialog */}
+      <Dialog
+        open={Boolean(viewingPost)}
+        onClose={() => setViewingPost(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        {viewingPost && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: '#E3F2FD', display: 'flex', alignItems: 'center', justifyContent: 'center', color: viewingPost.platformColor }}>
+                  {viewingPost.platformIcon}
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{viewingPost.platform}</Typography>
+                  <Typography variant="caption" sx={{ color: '#5A6A85', fontWeight: 400 }}>{viewingPost.date}</Typography>
+                </Box>
+                <Box sx={{ ml: 'auto' }}>
+                  <Chip
+                    label={STATUS_CONFIG[viewingPost.status].label}
+                    size="small"
+                    sx={{ bgcolor: STATUS_CONFIG[viewingPost.status].bg, color: STATUS_CONFIG[viewingPost.status].color, fontWeight: 600 }}
+                  />
+                </Box>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" sx={{ color: '#2A3547', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                {viewingPost.content}
+              </Typography>
+              {viewingPost.status === 'published' && viewingPost.reach ? (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="caption" sx={{ color: '#7C8FAC', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1.5 }}>
+                    Engagement
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 3 }}>
+                    <Box>
+                      <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#2A3547' }}>{viewingPost.reach?.toLocaleString()}</Typography>
+                      <Typography variant="caption" sx={{ color: '#5A6A85' }}>Reach</Typography>
+                    </Box>
+                    {viewingPost.likes !== undefined && (
+                      <Box>
+                        <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#FA896B' }}>{viewingPost.likes}</Typography>
+                        <Typography variant="caption" sx={{ color: '#5A6A85' }}>Likes</Typography>
+                      </Box>
+                    )}
+                    {viewingPost.comments !== undefined && (
+                      <Box>
+                        <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#5D87FF' }}>{viewingPost.comments}</Typography>
+                        <Typography variant="caption" sx={{ color: '#5A6A85' }}>Comments</Typography>
+                      </Box>
+                    )}
+                    {viewingPost.shares !== undefined && (
+                      <Box>
+                        <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#13DEB9' }}>{viewingPost.shares}</Typography>
+                        <Typography variant="caption" sx={{ color: '#5A6A85' }}>Shares</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </>
+              ) : null}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setViewingPost(null)} sx={{ color: '#5A6A85' }}>Close</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   )
 }

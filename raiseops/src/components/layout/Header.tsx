@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   AppBar,
@@ -44,11 +44,36 @@ interface HeaderProps {
   onMenuClick: () => void
 }
 
+const NOTIFICATIONS = [
+  { title: 'New investor match found', subtitle: 'Sequoia Capital — 94% fit score', time: '2m ago', color: '#2563EB', href: '/investors' },
+  { title: 'Meeting reminder', subtitle: 'Andreessen Horowitz — Tomorrow 2:00 PM', time: '1h ago', color: '#FFAE1F', href: '/investors' },
+  { title: 'Post published', subtitle: 'Your LinkedIn post reached 1,240 views', time: '3h ago', color: '#13DEB9', href: '/social' },
+]
+
 export default function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null)
+  const [userName, setUserName] = useState('Account')
+  const [userEmail, setUserEmail] = useState('')
+  const [userInitials, setUserInitials] = useState('?')
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const meta = user.user_metadata ?? {}
+      const name = meta.full_name ?? meta.name ?? user.email?.split('@')[0] ?? 'Account'
+      setUserName(name)
+      setUserEmail(user.email ?? '')
+      setUserInitials(
+        name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+      )
+    }
+    loadUser()
+  }, [])
 
   const pageTitle =
     Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] || 'Dashboard'
@@ -168,12 +193,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
               Notifications
             </Typography>
           </Box>
-          {[
-            { title: 'New investor match found', subtitle: 'Sequoia Capital — 94% fit score', time: '2m ago', color: '#2563EB' },
-            { title: 'Meeting reminder', subtitle: 'Andreessen Horowitz — Tomorrow 2:00 PM', time: '1h ago', color: '#FFAE1F' },
-            { title: 'Post published', subtitle: 'Your LinkedIn post reached 1,240 views', time: '3h ago', color: '#13DEB9' },
-          ].map((notif, i) => (
-            <MenuItem key={i} sx={{ py: 1.5, px: 2 }}>
+          {NOTIFICATIONS.map((notif, i) => (
+            <MenuItem
+              key={i}
+              onClick={() => { setNotifAnchorEl(null); router.push(notif.href) }}
+              sx={{ py: 1.5, px: 2 }}
+            >
               <Box
                 sx={{
                   width: 8,
@@ -225,11 +250,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
               fontWeight: 700,
             }}
           >
-            JD
+            {userInitials}
           </Avatar>
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
             <Typography variant="body2" sx={{ fontWeight: 600, color: '#0D1B2A', lineHeight: 1.2 }}>
-              Jane Doe
+              {userName}
             </Typography>
             <Typography variant="caption" sx={{ color: '#5A6A85', lineHeight: 1 }}>
               Starter Plan
@@ -257,10 +282,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
         >
           <Box sx={{ px: 2, py: 1.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 600, color: '#0D1B2A' }}>
-              Jane Doe
+              {userName}
             </Typography>
             <Typography variant="caption" sx={{ color: '#5A6A85' }}>
-              jane@acmecorp.com
+              {userEmail}
             </Typography>
           </Box>
           <Divider />
