@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 import { useRouter } from 'next/navigation'
 import {
   Box,
@@ -77,26 +78,8 @@ export default function LoginPage() {
     >
       <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
         {/* Logo */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, justifyContent: 'center' }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 800,
-              fontSize: '0.875rem',
-            }}
-          >
-            RO
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#2A3547' }}>
-            RaiseOps
-          </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Logo href="/login" onLight />
         </Box>
 
         {/* Heading */}

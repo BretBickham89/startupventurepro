@@ -80,6 +80,25 @@ interface SidebarProps {
 function SidebarContent() {
   const pathname = usePathname()
   const router = useRouter()
+  const [userName, setUserName] = React.useState('')
+  const [userInitials, setUserInitials] = React.useState('?')
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const loadUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const meta = user.user_metadata ?? {}
+      const name = meta.full_name ?? meta.name ?? user.email?.split('@')[0] ?? ''
+      setUserName(name)
+      setUserInitials(
+        name ? name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : '?'
+      )
+      if (meta.avatar_url) setAvatarUrl(meta.avatar_url)
+    }
+    loadUser()
+  }, [])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -291,6 +310,7 @@ function SidebarContent() {
         }}
       >
         <Avatar
+          src={avatarUrl ?? undefined}
           sx={{
             width: 36,
             height: 36,
@@ -299,20 +319,14 @@ function SidebarContent() {
             fontWeight: 700,
           }}
         >
-          JD
+          {!avatarUrl && userInitials}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
             variant="body2"
             sx={{ color: '#fff', fontWeight: 600, fontSize: '0.8125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
-            Jane Doe
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            Starter Plan
+            {userName || 'Account'}
           </Typography>
         </Box>
         <Tooltip title="Sign Out">

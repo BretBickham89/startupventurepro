@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 import {
   AppBar,
   Toolbar,
@@ -214,34 +215,8 @@ export default function LandingPage() {
         <Container maxWidth="lg">
           <Toolbar disableGutters sx={{ height: 72 }}>
             {/* Logo */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 0 }}>
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontWeight: 800,
-                  fontSize: '0.875rem',
-                }}
-              >
-                RO
-              </Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: '#0D1B2A',
-                  fontSize: '1rem',
-                  display: { xs: 'none', sm: 'block' },
-                }}
-              >
-                RaiseOps
-              </Typography>
+            <Box sx={{ flexGrow: 0 }}>
+              <Logo href="/" onLight />
             </Box>
 
             {/* Desktop Nav */}
@@ -833,6 +808,7 @@ export default function LandingPage() {
                     border: tier.highlighted ? '2px solid #5D87FF' : '1px solid #e5eaef',
                     boxShadow: tier.highlighted ? '0 12px 40px rgba(37, 99, 235, 0.2)' : undefined,
                     transform: tier.highlighted ? 'scale(1.02)' : 'none',
+                    overflow: 'visible',
                   }}
                 >
                   {tier.badge && (
@@ -1014,24 +990,8 @@ export default function LandingPage() {
         <Container maxWidth="lg">
           <Grid container spacing={4}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Box
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  RO
-                </Box>
-                <Typography sx={{ fontWeight: 700, color: '#fff' }}>RaiseOps</Typography>
+              <Box sx={{ mb: 2 }}>
+                <Logo href="/" />
               </Box>
               <Typography variant="body2" sx={{ lineHeight: 1.7, maxWidth: 280 }}>
                 The all-in-one platform for founders raising capital, building their brand, and

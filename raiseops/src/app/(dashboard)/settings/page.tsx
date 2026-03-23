@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   Box,
@@ -30,7 +30,7 @@ import {
   Stack,
   CircularProgress,
 } from '@mui/material'
-import { IconUpload, IconCheck } from '@tabler/icons-react'
+import { IconUpload, IconCheck, IconTrash } from '@tabler/icons-react'
 
 const INDUSTRIES = ['FinTech', 'EdTech', 'HealthTech', 'SaaS', 'B2B', 'Consumer', 'DeepTech', 'ClimaTech', 'AgriTech', 'LegalTech']
 
@@ -41,13 +41,6 @@ const FUNDING_STAGES = [
   { value: 'series-b', label: 'Series B' },
   { value: 'series-c', label: 'Series C' },
   { value: 'growth', label: 'Growth' },
-]
-
-const BILLING_HISTORY = [
-  { date: 'Mar 1, 2026', description: 'Starter Plan — Monthly', amount: '$49.00', status: 'Paid' },
-  { date: 'Feb 1, 2026', description: 'Starter Plan — Monthly', amount: '$49.00', status: 'Paid' },
-  { date: 'Jan 1, 2026', description: 'Starter Plan — Monthly', amount: '$49.00', status: 'Paid' },
-  { date: 'Dec 1, 2025', description: 'Starter Plan — Monthly', amount: '$49.00', status: 'Paid' },
 ]
 
 interface TabPanelProps {
@@ -67,13 +60,17 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function SettingsPage() {
   const [tab, setTab] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success',
   })
 
-  // Profile state
+  // Profile state — all empty by default, populated from real user data
   const [profile, setProfile] = useState({
     fullName: '',
     email: '',
@@ -81,15 +78,18 @@ export default function SettingsPage() {
     website: '',
     linkedin: '',
     twitter: '',
+    instagram: '',
+    facebook: '',
+    tiktok: '',
   })
 
-  // Company state
+  // Company state — all empty by default
   const [company, setCompany] = useState({
     name: '',
-    industry: 'SaaS',
+    industry: '',
     fundingStage: '',
     headquarters: '',
-    teamSize: '1-5',
+    teamSize: '',
   })
 
   // Load from Supabase auth
@@ -98,24 +98,27 @@ export default function SettingsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      setUserId(user.id)
       const meta = user.user_metadata ?? {}
-      setProfile((prev) => ({
-        ...prev,
+      setAvatarUrl(meta.avatar_url ?? null)
+      setProfile({
         fullName: meta.full_name ?? meta.name ?? '',
         email: user.email ?? '',
-        bio: meta.bio ?? prev.bio,
-        website: meta.website ?? prev.website,
-        linkedin: meta.linkedin_url ?? prev.linkedin,
-        twitter: meta.twitter_handle ?? prev.twitter,
-      }))
-      setCompany((prev) => ({
-        ...prev,
-        name: meta.company_name ?? prev.name,
-        fundingStage: meta.funding_stage ?? prev.fundingStage,
-        industry: meta.industry ?? prev.industry,
-        headquarters: meta.headquarters ?? prev.headquarters,
-        teamSize: meta.team_size ?? prev.teamSize,
-      }))
+        bio: meta.bio ?? '',
+        website: meta.website ?? '',
+        linkedin: meta.linkedin_url ?? '',
+        twitter: meta.twitter_handle ?? '',
+        instagram: meta.instagram ?? '',
+        facebook: meta.facebook ?? '',
+        tiktok: meta.tiktok ?? '',
+      })
+      setCompany({
+        name: meta.company_name ?? '',
+        industry: meta.industry ?? '',
+        fundingStage: meta.funding_stage ?? '',
+        headquarters: meta.headquarters ?? '',
+        teamSize: meta.team_size ?? '',
+      })
     }
     loadUser()
   }, [])
@@ -137,17 +140,63 @@ export default function SettingsPage() {
     confirmPassword: '',
   })
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSnackbar({ open: true, message: 'Photo must be under 2MB.', severity: 'error' })
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop()
+      const path = `${userId}/avatar.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+
+      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
+      await supabase.auth.refreshSession()
+      setAvatarUrl(publicUrl)
+      setSnackbar({ open: true, message: 'Photo updated!', severity: 'success' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed.'
+      setSnackbar({ open: true, message: msg, severity: 'error' })
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    const supabase = createClient()
+    await supabase.auth.updateUser({ data: { avatar_url: null } })
+    setAvatarUrl(null)
+    setSnackbar({ open: true, message: 'Photo removed.', severity: 'success' })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
       const supabase = createClient()
-      await supabase.auth.updateUser({
+      const { error, data } = await supabase.auth.updateUser({
         data: {
           full_name: profile.fullName,
           bio: profile.bio,
           website: profile.website,
           linkedin_url: profile.linkedin,
           twitter_handle: profile.twitter,
+          instagram: profile.instagram,
+          facebook: profile.facebook,
+          tiktok: profile.tiktok,
           company_name: company.name,
           industry: company.industry,
           funding_stage: company.fundingStage,
@@ -155,15 +204,28 @@ export default function SettingsPage() {
           team_size: company.teamSize,
         },
       })
+      if (error) throw error
+      // Refresh session so updated metadata is reflected everywhere immediately
+      await supabase.auth.refreshSession()
+      // Update local state from the returned user to confirm what was saved
+      if (data.user) {
+        const meta = data.user.user_metadata ?? {}
+        setProfile((prev) => ({ ...prev, fullName: meta.full_name ?? prev.fullName }))
+      }
       setSnackbar({ open: true, message: 'Settings saved successfully!', severity: 'success' })
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to save settings.', severity: 'error' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save settings.'
+      setSnackbar({ open: true, message: msg, severity: 'error' })
     } finally {
       setSaving(false)
     }
   }
 
   const handlePasswordChange = async () => {
+    if (!security.newPassword) {
+      setSnackbar({ open: true, message: 'Please enter a new password.', severity: 'error' })
+      return
+    }
     if (security.newPassword !== security.confirmPassword) {
       setSnackbar({ open: true, message: 'New passwords do not match.', severity: 'error' })
       return
@@ -173,11 +235,23 @@ export default function SettingsPage() {
       return
     }
     setSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSaving(false)
-    setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' })
-    setSnackbar({ open: true, message: 'Password updated successfully!', severity: 'success' })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password: security.newPassword })
+      if (error) throw error
+      setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setSnackbar({ open: true, message: 'Password updated successfully!', severity: 'success' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update password.'
+      setSnackbar({ open: true, message: msg, severity: 'error' })
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const initials = profile.fullName
+    ? profile.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    : '?'
 
   return (
     <Box>
@@ -208,6 +282,7 @@ export default function SettingsPage() {
           >
             <Tab label="Profile" />
             <Tab label="Company" />
+            <Tab label="Social Media" />
             <Tab label="Notifications" />
             <Tab label="Security" />
             <Tab label="Billing" />
@@ -222,6 +297,7 @@ export default function SettingsPage() {
               <Grid size={12}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                   <Avatar
+                    src={avatarUrl ?? undefined}
                     sx={{
                       width: 80,
                       height: 80,
@@ -231,31 +307,46 @@ export default function SettingsPage() {
                       border: '3px solid #ECF2FF',
                     }}
                   >
-                    {profile.fullName
-                      ? profile.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-                      : '?'}
+                    {!avatarUrl && initials}
                   </Avatar>
                   <Box>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547', mb: 1 }}>
                       Profile Photo
                     </Typography>
+                    {/* Hidden file input */}
+                    <Box
+                      component="input"
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      aria-label="Upload profile photo"
+                      title="Upload profile photo"
+                      onChange={handlePhotoUpload}
+                      sx={{ display: 'none' }}
+                    />
                     <Button
                       variant="outlined"
                       size="small"
-                      startIcon={<IconUpload size={16} />}
+                      startIcon={uploadingPhoto ? <CircularProgress size={14} /> : <IconUpload size={16} />}
+                      disabled={uploadingPhoto}
+                      onClick={() => fileInputRef.current?.click()}
                       sx={{ borderColor: '#e5eaef', color: '#5A6A85', mr: 1, '&:hover': { borderColor: '#5D87FF', color: '#5D87FF' } }}
                     >
-                      Upload Photo
+                      {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
                     </Button>
-                    <Button
-                      variant="text"
-                      size="small"
-                      sx={{ color: '#FA896B' }}
-                    >
-                      Remove
-                    </Button>
+                    {avatarUrl && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        startIcon={<IconTrash size={14} />}
+                        onClick={handleRemovePhoto}
+                        sx={{ color: '#FA896B' }}
+                      >
+                        Remove
+                      </Button>
+                    )}
                     <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block', mt: 0.5 }}>
-                      JPG, PNG or GIF. Max size 2MB.
+                      JPG, PNG, GIF or WebP. Max 2MB.
                     </Typography>
                   </Box>
                 </Box>
@@ -276,7 +367,7 @@ export default function SettingsPage() {
                   fullWidth
                   value={profile.email}
                   disabled
-                  helperText="Email cannot be changed here. Contact support."
+                  helperText="Contact support to change your email."
                 />
               </Grid>
 
@@ -290,6 +381,7 @@ export default function SettingsPage() {
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                   helperText={`${profile.bio.length}/280 characters`}
                   inputProps={{ maxLength: 280 }}
+                  placeholder="Tell investors a bit about yourself..."
                 />
               </Grid>
 
@@ -310,16 +402,6 @@ export default function SettingsPage() {
                   value={profile.linkedin}
                   onChange={(e) => setProfile({ ...profile, linkedin: e.target.value })}
                   placeholder="https://linkedin.com/in/yourname"
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Twitter Handle"
-                  fullWidth
-                  value={profile.twitter}
-                  onChange={(e) => setProfile({ ...profile, twitter: e.target.value })}
-                  placeholder="@yourhandle"
                 />
               </Grid>
 
@@ -346,6 +428,7 @@ export default function SettingsPage() {
                   fullWidth
                   value={company.name}
                   onChange={(e) => setCompany({ ...company, name: e.target.value })}
+                  placeholder="Acme Corp"
                 />
               </Grid>
 
@@ -356,7 +439,10 @@ export default function SettingsPage() {
                   fullWidth
                   value={company.industry}
                   onChange={(e) => setCompany({ ...company, industry: e.target.value })}
+                  SelectProps={{ displayEmpty: true }}
+                  InputLabelProps={{ shrink: true }}
                 >
+                  <MenuItem value=""><em>Select industry...</em></MenuItem>
                   {INDUSTRIES.map((ind) => (
                     <MenuItem key={ind} value={ind}>{ind}</MenuItem>
                   ))}
@@ -370,7 +456,10 @@ export default function SettingsPage() {
                   fullWidth
                   value={company.fundingStage}
                   onChange={(e) => setCompany({ ...company, fundingStage: e.target.value })}
+                  SelectProps={{ displayEmpty: true }}
+                  InputLabelProps={{ shrink: true }}
                 >
+                  <MenuItem value=""><em>Select stage...</em></MenuItem>
                   {FUNDING_STAGES.map((stage) => (
                     <MenuItem key={stage.value} value={stage.value}>{stage.label}</MenuItem>
                   ))}
@@ -394,7 +483,10 @@ export default function SettingsPage() {
                   fullWidth
                   value={company.teamSize}
                   onChange={(e) => setCompany({ ...company, teamSize: e.target.value })}
+                  SelectProps={{ displayEmpty: true }}
+                  InputLabelProps={{ shrink: true }}
                 >
+                  <MenuItem value=""><em>Select team size...</em></MenuItem>
                   {['1-5', '6-10', '11-25', '26-50', '51-100', '100+'].map((size) => (
                     <MenuItem key={size} value={size}>{size} employees</MenuItem>
                   ))}
@@ -415,8 +507,68 @@ export default function SettingsPage() {
             </Grid>
           </TabPanel>
 
-          {/* NOTIFICATIONS TAB */}
+          {/* SOCIAL MEDIA TAB */}
           <TabPanel value={tab} index={2}>
+            <Box sx={{ maxWidth: 600 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 0.5 }}>
+                Social Media Links
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#5A6A85', mb: 3 }}>
+                Connect your social profiles to manage content and track engagement.
+              </Typography>
+              <Stack spacing={2.5}>
+                <TextField
+                  label="LinkedIn URL"
+                  fullWidth
+                  value={profile.linkedin}
+                  onChange={(e) => setProfile({ ...profile, linkedin: e.target.value })}
+                  placeholder="https://linkedin.com/in/yourname"
+                />
+                <TextField
+                  label="Twitter / X Handle"
+                  fullWidth
+                  value={profile.twitter}
+                  onChange={(e) => setProfile({ ...profile, twitter: e.target.value })}
+                  placeholder="@yourhandle"
+                />
+                <TextField
+                  label="Instagram Handle"
+                  fullWidth
+                  value={profile.instagram}
+                  onChange={(e) => setProfile({ ...profile, instagram: e.target.value })}
+                  placeholder="@yourhandle"
+                />
+                <TextField
+                  label="Facebook Page URL"
+                  fullWidth
+                  value={profile.facebook}
+                  onChange={(e) => setProfile({ ...profile, facebook: e.target.value })}
+                  placeholder="https://facebook.com/yourpage"
+                />
+                <TextField
+                  label="TikTok Handle"
+                  fullWidth
+                  value={profile.tiktok}
+                  onChange={(e) => setProfile({ ...profile, tiktok: e.target.value })}
+                  placeholder="@yourhandle"
+                />
+                <Box>
+                  <Button
+                    variant="contained"
+                    onClick={handleSave}
+                    disabled={saving}
+                    sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)', px: 4 }}
+                    startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <IconCheck size={16} />}
+                  >
+                    Save Social Links
+                  </Button>
+                </Box>
+              </Stack>
+            </Box>
+          </TabPanel>
+
+          {/* NOTIFICATIONS TAB */}
+          <TabPanel value={tab} index={3}>
             <Box sx={{ maxWidth: 600 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 0.5 }}>
                 Email Notifications
@@ -435,14 +587,7 @@ export default function SettingsPage() {
                   { key: 'teamUpdates', label: 'Team Updates', description: 'Notifications when team members make changes' },
                 ].map((item, index, arr) => (
                   <React.Fragment key={item.key}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        py: 2,
-                      }}
-                    >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 2 }}>
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>
                           {item.label}
@@ -453,9 +598,7 @@ export default function SettingsPage() {
                       </Box>
                       <Switch
                         checked={notifications[item.key as keyof typeof notifications]}
-                        onChange={(e) =>
-                          setNotifications({ ...notifications, [item.key]: e.target.checked })
-                        }
+                        onChange={(e) => setNotifications({ ...notifications, [item.key]: e.target.checked })}
                         sx={{
                           '& .MuiSwitch-switchBase.Mui-checked': { color: '#5D87FF' },
                           '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#5D87FF' },
@@ -482,7 +625,7 @@ export default function SettingsPage() {
           </TabPanel>
 
           {/* SECURITY TAB */}
-          <TabPanel value={tab} index={3}>
+          <TabPanel value={tab} index={4}>
             <Box sx={{ maxWidth: 480 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 0.5 }}>
                 Change Password
@@ -513,13 +656,9 @@ export default function SettingsPage() {
                   fullWidth
                   value={security.confirmPassword}
                   onChange={(e) => setSecurity({ ...security, confirmPassword: e.target.value })}
-                  error={
-                    security.confirmPassword.length > 0 &&
-                    security.newPassword !== security.confirmPassword
-                  }
+                  error={security.confirmPassword.length > 0 && security.newPassword !== security.confirmPassword}
                   helperText={
-                    security.confirmPassword.length > 0 &&
-                    security.newPassword !== security.confirmPassword
+                    security.confirmPassword.length > 0 && security.newPassword !== security.confirmPassword
                       ? 'Passwords do not match'
                       : ''
                   }
@@ -553,19 +692,12 @@ export default function SettingsPage() {
           </TabPanel>
 
           {/* BILLING TAB */}
-          <TabPanel value={tab} index={4}>
-            {/* Current Plan */}
+          <TabPanel value={tab} index={5}>
             <Box sx={{ mb: 4 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 2 }}>
                 Current Plan
               </Typography>
-              <Card
-                sx={{
-                  maxWidth: 460,
-                  border: '2px solid #5D87FF',
-                  boxShadow: '0 4px 20px rgba(93,135,255,0.15)',
-                }}
-              >
+              <Card sx={{ maxWidth: 460, border: '2px solid #5D87FF', boxShadow: '0 4px 20px rgba(93,135,255,0.15)' }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
@@ -585,12 +717,7 @@ export default function SettingsPage() {
                   </Box>
 
                   <Stack spacing={1} sx={{ mb: 2.5 }}>
-                    {[
-                      '50 investor searches/month',
-                      'Basic CRM (25 contacts)',
-                      '10 scheduled posts',
-                      'Email support',
-                    ].map((feature) => (
+                    {['50 investor searches/month', 'Basic CRM (25 contacts)', '10 scheduled posts', 'Email support'].map((feature) => (
                       <Box key={feature} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ width: 18, height: 18, borderRadius: '50%', bgcolor: '#E6FFFA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <IconCheck size={10} color="#13DEB9" />
@@ -611,49 +738,13 @@ export default function SettingsPage() {
               </Card>
             </Box>
 
-            {/* Billing History */}
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', mb: 1 }}>
                 Billing History
               </Typography>
-              <TableContainer
-                component={Paper}
-                elevation={0}
-                sx={{ border: '1px solid #e5eaef', borderRadius: '10px', overflow: 'hidden' }}
-              >
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ '& th': { bgcolor: '#F6F8FB' } }}>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {BILLING_HISTORY.map((row, i) => (
-                      <TableRow key={i} sx={{ '&:hover': { bgcolor: '#F6F8FB' } }}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ color: '#5A6A85' }}>{row.date}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ color: '#2A3547' }}>{row.description}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>{row.amount}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={row.status}
-                            size="small"
-                            sx={{ bgcolor: '#E6FFFA', color: '#02b3a9', fontWeight: 600, fontSize: '0.7rem', height: 22 }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Typography variant="body2" sx={{ color: '#5A6A85', mb: 2 }}>
+                No billing history yet.
+              </Typography>
             </Box>
           </TabPanel>
         </Box>
