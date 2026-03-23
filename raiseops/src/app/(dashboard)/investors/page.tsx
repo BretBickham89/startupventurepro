@@ -20,9 +20,27 @@ import {
   Avatar,
   Stack,
   Divider,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+  Checkbox,
 } from '@mui/material'
-import { IconBuildingBank, IconMapPin, IconBriefcase, IconMail, IconBrandLinkedin, IconX } from '@tabler/icons-react'
-import InvestorCard from '@/components/investors/InvestorCard'
+import {
+  IconBuildingBank,
+  IconMapPin,
+  IconBriefcase,
+  IconMail,
+  IconBrandLinkedin,
+  IconSparkles,
+  IconRocket,
+  IconListCheck,
+  IconUsers,
+  IconTarget,
+  IconCopy,
+  IconCheck,
+  IconX,
+} from '@tabler/icons-react'
+import InvestorCard, { type PipelineStatus } from '@/components/investors/InvestorCard'
 import InvestorFilters, { type FilterState } from '@/components/investors/InvestorFilters'
 import type { Investor } from '@/lib/supabase/types'
 
@@ -243,6 +261,30 @@ const MOCK_INVESTORS: Investor[] = [
 
 type SortOption = 'match_score' | 'name' | 'portfolio_count'
 
+interface OutreachModal {
+  open: boolean
+  investor: Investor | null
+  loading: boolean
+  subject: string
+  message: string
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <Tooltip title={copied ? 'Copied!' : `Copy ${label}`}>
+      <IconButton size="small" onClick={handleCopy} sx={{ color: copied ? '#13DEB9' : '#7C8FAC' }}>
+        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+      </IconButton>
+    </Tooltip>
+  )
+}
+
 export default function InvestorsPage() {
   const [filters, setFilters] = useState<FilterState>({
     search: '',
@@ -253,9 +295,22 @@ export default function InvestorsPage() {
     minMatchScore: 0,
   })
   const [sortBy, setSortBy] = useState<SortOption>('match_score')
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({ open: false, message: '' })
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity?: 'success' | 'info' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
   const [viewingInvestor, setViewingInvestor] = useState<Investor | null>(null)
   const [savedInvestors, setSavedInvestors] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [pipelineStatuses, setPipelineStatuses] = useState<Record<string, PipelineStatus>>({})
+  const [outreachModal, setOutreachModal] = useState<OutreachModal>({
+    open: false,
+    investor: null,
+    loading: false,
+    subject: '',
+    message: '',
+  })
 
   const filteredInvestors = useMemo(() => {
     let result = [...MOCK_INVESTORS]
@@ -302,24 +357,123 @@ export default function InvestorsPage() {
 
   const handleSaveToCRM = (investor: Investor) => {
     setSavedInvestors((prev) => new Set([...prev, investor.id]))
-    setSnackbar({ open: true, message: `${investor.name} added to your CRM pipeline!` })
+    setSnackbar({ open: true, message: `${investor.name} added to your CRM pipeline!`, severity: 'success' })
   }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredInvestors.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filteredInvestors.map((inv) => inv.id)))
+    }
+  }
+
+  const handlePipelineStatusChange = (investorId: string, status: PipelineStatus) => {
+    setPipelineStatuses((prev) => ({ ...prev, [investorId]: status }))
+  }
+
+  const handleAddToPipeline = (investor: Investor) => {
+    setPipelineStatuses((prev) => ({
+      ...prev,
+      [investor.id]: prev[investor.id] === 'not-contacted' || !prev[investor.id] ? 'draft-ready' : prev[investor.id],
+    }))
+    setSnackbar({ open: true, message: `${investor.name} added to Outreach Pipeline`, severity: 'success' })
+  }
+
+  const handleGenerateIntro = async (investor: Investor) => {
+    setOutreachModal({ open: true, investor, loading: true, subject: '', message: '' })
+
+    try {
+      const res = await fetch('/api/generate-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          investorName: investor.name,
+          investorFirm: investor.firm,
+          focusAreas: investor.focus_areas,
+          stage: investor.funding_stages[0],
+          companyName: 'RaiseOps',
+        }),
+      })
+      const data = await res.json()
+      setOutreachModal((prev) => ({ ...prev, loading: false, subject: data.subject, message: data.message }))
+      // Mark as draft-ready in pipeline
+      setPipelineStatuses((prev) => ({ ...prev, [investor.id]: 'draft-ready' }))
+    } catch {
+      setOutreachModal((prev) => ({
+        ...prev,
+        loading: false,
+        subject: 'Error generating outreach',
+        message: 'Please try again.',
+      }))
+    }
+  }
+
+  const handleGenerateTop10 = () => {
+    const top10 = filteredInvestors.slice(0, 10)
+    setSelectedIds(new Set(top10.map((inv) => inv.id)))
+    setSnackbar({ open: true, message: `Top 10 matches selected — ready for outreach!`, severity: 'info' })
+  }
+
+  const handleBulkOutreach = async () => {
+    if (selectedIds.size === 0) {
+      setSnackbar({ open: true, message: 'Select investors first to generate outreach', severity: 'info' })
+      return
+    }
+    const first = filteredInvestors.find((inv) => selectedIds.has(inv.id))
+    if (first) handleGenerateIntro(first)
+  }
+
+  const handleBuildPitchList = () => {
+    const count = selectedIds.size || filteredInvestors.length
+    setSnackbar({ open: true, message: `Pitch list built with ${count} investors — saved to CRM`, severity: 'success' })
+    if (selectedIds.size > 0) {
+      setSavedInvestors((prev) => new Set([...prev, ...selectedIds]))
+    }
+  }
+
+  const allSelected = filteredInvestors.length > 0 && selectedIds.size === filteredInvestors.length
+  const someSelected = selectedIds.size > 0 && selectedIds.size < filteredInvestors.length
 
   return (
     <Box>
-      {/* Page header */}
+      {/* ── Page header ─────────────────────────────── */}
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: '#2A3547', mb: 0.5 }}>
-            Investor Discovery
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#2A3547' }}>
+              Investor Discovery
+            </Typography>
+            <Chip
+              label="AI-Powered"
+              size="small"
+              icon={<IconSparkles size={12} />}
+              sx={{
+                background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '0.65rem',
+                height: 22,
+                '& .MuiChip-icon': { color: '#fff' },
+              }}
+            />
+          </Box>
           <Typography variant="body2" sx={{ color: '#5A6A85' }}>
-            Find and connect with the right investors for your startup
+            Your AI fundraising engine — find, match, and reach the right investors
           </Typography>
         </Box>
       </Box>
 
-      {/* Stats bar */}
+      {/* ── Stats bar ───────────────────────────────── */}
       <Box
         sx={{
           display: 'flex',
@@ -338,19 +492,19 @@ export default function InvestorsPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconBuildingBank size={18} color="#5D87FF" />
             <Typography variant="body2" sx={{ color: '#5A6A85' }}>
-              <strong style={{ color: '#2A3547' }}>2,847</strong> total investors
+              <Box component="strong" sx={{ color: '#2A3547' }}>2,847</Box> investors in database
             </Typography>
           </Box>
           <Chip
-            label={`Showing ${filteredInvestors.length} results`}
+            label={`${filteredInvestors.length} matches`}
             size="small"
             sx={{ bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 600 }}
           />
-          {filters.fundingStages.length > 0 && (
+          {selectedIds.size > 0 && (
             <Chip
-              label={`${filters.fundingStages.length} stage filter(s)`}
+              label={`${selectedIds.size} selected`}
               size="small"
-              sx={{ bgcolor: '#E8F7FF', color: '#23afdb', fontWeight: 500 }}
+              sx={{ bgcolor: '#E6FFFA', color: '#13DEB9', fontWeight: 600 }}
             />
           )}
         </Box>
@@ -363,13 +517,13 @@ export default function InvestorsPage() {
             onChange={(e) => setSortBy(e.target.value as SortOption)}
           >
             <MenuItem value="match_score">Match Score (Best first)</MenuItem>
-            <MenuItem value="name">Name (A-Z)</MenuItem>
+            <MenuItem value="name">Name (A–Z)</MenuItem>
             <MenuItem value="portfolio_count">Portfolio Size</MenuItem>
           </Select>
         </FormControl>
       </Box>
 
-      {/* Layout: filters + grid */}
+      {/* ── Layout: filters + grid ──────────────────── */}
       <Grid container spacing={2.5}>
         {/* Filters Panel */}
         <Grid size={{ xs: 12, md: 3 }}>
@@ -378,6 +532,93 @@ export default function InvestorsPage() {
 
         {/* Investor Grid */}
         <Grid size={{ xs: 12, md: 9 }}>
+          {filteredInvestors.length > 0 && (
+            <>
+              {/* ── Bulk Action Bar ──────────────────── */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  flexWrap: 'wrap',
+                  mb: 2.5,
+                  p: 1.75,
+                  bgcolor: '#fff',
+                  borderRadius: '12px',
+                  border: '1px solid #e5eaef',
+                }}
+              >
+                <Tooltip title={allSelected ? 'Deselect all' : 'Select all'}>
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onChange={handleSelectAll}
+                    size="small"
+                    sx={{ p: 0.25, color: '#DDE3EE', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#5D87FF' } }}
+                  />
+                </Tooltip>
+
+                <Typography sx={{ fontSize: '0.8rem', color: '#5A6A85', mr: 0.5 }}>
+                  {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Bulk actions:'}
+                </Typography>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<IconTarget size={14} />}
+                  onClick={handleGenerateTop10}
+                  sx={{
+                    fontSize: '0.75rem',
+                    borderColor: '#DDE3EE',
+                    color: '#5A6A85',
+                    borderRadius: '8px',
+                    '&:hover': { borderColor: '#5D87FF', color: '#5D87FF', bgcolor: '#ECF2FF' },
+                  }}
+                >
+                  Generate Top 10
+                </Button>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<IconRocket size={14} />}
+                  onClick={handleBulkOutreach}
+                  disabled={selectedIds.size === 0}
+                  sx={{
+                    fontSize: '0.75rem',
+                    borderRadius: '8px',
+                    ...(selectedIds.size > 0
+                      ? {
+                          background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          '&:hover': { background: 'linear-gradient(135deg, #1d4ed8 0%, #059669 100%)', border: 'none' },
+                        }
+                      : { borderColor: '#DDE3EE', color: '#AABACF' }),
+                  }}
+                >
+                  Generate Outreach{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+                </Button>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<IconListCheck size={14} />}
+                  onClick={handleBuildPitchList}
+                  sx={{
+                    fontSize: '0.75rem',
+                    borderColor: '#DDE3EE',
+                    color: '#5A6A85',
+                    borderRadius: '8px',
+                    '&:hover': { borderColor: '#10B981', color: '#10B981', bgcolor: '#E6FFFA' },
+                  }}
+                >
+                  Build Pitch List
+                </Button>
+              </Box>
+            </>
+          )}
+
           {filteredInvestors.length === 0 ? (
             <Box
               sx={{
@@ -402,9 +643,14 @@ export default function InvestorsPage() {
                 <Grid size={{ xs: 12, sm: 6, xl: 4 }} key={investor.id}>
                   <InvestorCard
                     investor={investor}
-                    onSaveToCRM={handleSaveToCRM}
-                    onViewProfile={(inv) => setViewingInvestor(inv)}
+                    pipelineStatus={pipelineStatuses[investor.id] ?? 'not-contacted'}
+                    isSelected={selectedIds.has(investor.id)}
                     isSaved={savedInvestors.has(investor.id)}
+                    onGenerateIntro={() => handleGenerateIntro(investor)}
+                    onPipelineStatusChange={(status) => handlePipelineStatusChange(investor.id, status)}
+                    onToggleSelect={() => handleToggleSelect(investor.id)}
+                    onSaveToCRM={() => handleSaveToCRM(investor)}
+                    onViewProfile={() => setViewingInvestor(investor)}
                   />
                 </Grid>
               ))}
@@ -413,15 +659,187 @@ export default function InvestorsPage() {
         </Grid>
       </Grid>
 
+      {/* ── Snackbar ─────────────────────────────────── */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ open: false, message: '' })}
-        message={snackbar.message}
+        autoHideDuration={3500}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      />
+      >
+        <Alert
+          severity={snackbar.severity ?? 'success'}
+          variant="filled"
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          sx={{ borderRadius: '10px' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
-      {/* Investor Profile Modal */}
+      {/* ── Generate Intro Modal ─────────────────────── */}
+      <Dialog
+        open={outreachModal.open}
+        onClose={() => !outreachModal.loading && setOutreachModal((prev) => ({ ...prev, open: false }))}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
+      >
+        {/* Gradient header */}
+        <Box sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', p: 2.5, pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {outreachModal.investor && (
+              <Avatar
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(outreachModal.investor.name)}&background=ffffff30&color=ffffff&bold=true&size=80`}
+                sx={{ width: 44, height: 44, borderRadius: '11px', border: '2px solid rgba(255,255,255,0.3)' }}
+              />
+            )}
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <IconRocket size={16} color="rgba(255,255,255,0.9)" />
+                <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  AI-Generated Intro
+                </Typography>
+              </Box>
+              <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '1.05rem' }}>
+                {outreachModal.investor?.name}
+              </Typography>
+              {outreachModal.investor?.firm && (
+                <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem' }}>
+                  {outreachModal.investor.firm}
+                </Typography>
+              )}
+            </Box>
+            <IconButton
+              onClick={() => !outreachModal.loading && setOutreachModal((prev) => ({ ...prev, open: false }))}
+              sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' } }}
+              size="small"
+            >
+              <IconX size={18} />
+            </IconButton>
+          </Box>
+        </Box>
+
+        <DialogContent sx={{ p: 3 }}>
+          {outreachModal.loading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 5, gap: 2 }}>
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress
+                  size={52}
+                  thickness={3}
+                  sx={{ color: '#2563EB' }}
+                />
+                <IconSparkles size={20} color="#2563EB" style={{ position: 'absolute' }} />
+              </Box>
+              <Typography sx={{ color: '#5A6A85', fontSize: '0.875rem', fontWeight: 500 }}>
+                Crafting your personalized outreach...
+              </Typography>
+              <Typography sx={{ color: '#7C8FAC', fontSize: '0.78rem', textAlign: 'center', maxWidth: 280 }}>
+                Analyzing investor thesis, portfolio fit, and crafting a compelling message
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={2.5}>
+              {/* Subject line */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#7C8FAC', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Subject Line
+                  </Typography>
+                  <CopyButton text={outreachModal.subject} label="subject" />
+                </Box>
+                <Box
+                  sx={{
+                    bgcolor: '#F6F8FB',
+                    borderRadius: '8px',
+                    p: 1.5,
+                    border: '1px solid #e5eaef',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.8rem', color: '#2A3547', fontWeight: 600, lineHeight: 1.5 }}>
+                    {outreachModal.subject}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Message body */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#7C8FAC', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Message
+                  </Typography>
+                  <CopyButton text={outreachModal.message} label="message" />
+                </Box>
+                <Box
+                  sx={{
+                    bgcolor: '#F6F8FB',
+                    borderRadius: '8px',
+                    p: 1.75,
+                    border: '1px solid #e5eaef',
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                  }}
+                >
+                  <Typography
+                    component="pre"
+                    sx={{
+                      fontSize: '0.8rem',
+                      color: '#2A3547',
+                      lineHeight: 1.75,
+                      fontFamily: 'inherit',
+                      whiteSpace: 'pre-wrap',
+                      m: 0,
+                    }}
+                  >
+                    {outreachModal.message}
+                  </Typography>
+                </Box>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+
+        {!outreachModal.loading && (
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button
+              onClick={() => setOutreachModal((prev) => ({ ...prev, open: false }))}
+              sx={{ color: '#5A6A85', borderRadius: '8px' }}
+            >
+              Close
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<IconCopy size={15} />}
+              onClick={() => {
+                navigator.clipboard.writeText(`Subject: ${outreachModal.subject}\n\n${outreachModal.message}`)
+                setSnackbar({ open: true, message: 'Full outreach copied to clipboard!', severity: 'success' })
+              }}
+              sx={{ borderColor: '#DDE3EE', color: '#5A6A85', borderRadius: '8px', '&:hover': { borderColor: '#5D87FF', color: '#5D87FF' } }}
+            >
+              Copy All
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<IconCheck size={15} />}
+              onClick={() => {
+                if (outreachModal.investor) {
+                  handlePipelineStatusChange(outreachModal.investor.id, 'sent')
+                  setSnackbar({ open: true, message: `${outreachModal.investor.name} marked as Sent`, severity: 'success' })
+                }
+                setOutreachModal((prev) => ({ ...prev, open: false }))
+              }}
+              sx={{
+                background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+                borderRadius: '8px',
+                '&:hover': { background: 'linear-gradient(135deg, #1d4ed8 0%, #059669 100%)' },
+              }}
+            >
+              Mark as Sent
+            </Button>
+          </DialogActions>
+        )}
+      </Dialog>
+
+      {/* ── Investor Profile Modal ───────────────────── */}
       <Dialog
         open={Boolean(viewingInvestor)}
         onClose={() => setViewingInvestor(null)}
@@ -554,26 +972,12 @@ export default function InvestorsPage() {
                   <Divider sx={{ mt: 2, mb: 2 }} />
                   <Stack direction="row" spacing={1.5}>
                     {viewingInvestor.email && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<IconMail size={15} />}
-                        href={`mailto:${viewingInvestor.email}`}
-                        sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }}
-                      >
+                      <Button size="small" variant="outlined" startIcon={<IconMail size={15} />} href={`mailto:${viewingInvestor.email}`} sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }}>
                         {viewingInvestor.email}
                       </Button>
                     )}
                     {viewingInvestor.linkedin_url && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<IconBrandLinkedin size={15} />}
-                        href={viewingInvestor.linkedin_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ borderColor: '#0077B5', color: '#0077B5', fontSize: '0.75rem' }}
-                      >
+                      <Button size="small" variant="outlined" startIcon={<IconBrandLinkedin size={15} />} href={viewingInvestor.linkedin_url} target="_blank" rel="noopener noreferrer" sx={{ borderColor: '#0077B5', color: '#0077B5', fontSize: '0.75rem' }}>
                         LinkedIn
                       </Button>
                     )}
@@ -583,7 +987,18 @@ export default function InvestorsPage() {
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-              <Button onClick={() => setViewingInvestor(null)} sx={{ color: '#5A6A85' }}>Close</Button>
+              <Button onClick={() => setViewingInvestor(null)} sx={{ color: '#5A6A85', borderRadius: '8px' }}>Close</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  handleGenerateIntro(viewingInvestor)
+                  setViewingInvestor(null)
+                }}
+                startIcon={<IconRocket size={15} />}
+                sx={{ borderRadius: '8px', borderColor: '#2563EB', color: '#2563EB' }}
+              >
+                Generate Intro
+              </Button>
               {!savedInvestors.has(viewingInvestor.id) ? (
                 <Button
                   variant="contained"
@@ -591,12 +1006,12 @@ export default function InvestorsPage() {
                     handleSaveToCRM(viewingInvestor)
                     setViewingInvestor(null)
                   }}
-                  sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)' }}
+                  sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', borderRadius: '8px' }}
                 >
                   + Save to CRM
                 </Button>
               ) : (
-                <Button variant="outlined" disabled sx={{ borderColor: '#13DEB9', color: '#13DEB9' }}>
+                <Button variant="outlined" disabled sx={{ borderColor: '#13DEB9', color: '#13DEB9', borderRadius: '8px' }}>
                   ✓ Saved to CRM
                 </Button>
               )}

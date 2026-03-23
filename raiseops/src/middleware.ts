@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PROTECTED_PATHS = ['/dashboard', '/investors', '/content', '/social', '/settings']
+const PROTECTED_PATHS = ['/dashboard', '/investors', '/content', '/social', '/settings', '/raise', '/analytics']
 const AUTH_PATHS = ['/login', '/register']
 const BYPASS_PATHS = ['/auth/callback']
 

@@ -9,14 +9,12 @@ import {
   Card,
   CardContent,
   Chip,
-  Avatar,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Divider,
   Stack,
   LinearProgress,
@@ -26,6 +24,11 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Alert,
+  CircularProgress,
+  Checkbox,
+  FormControlLabel,
+  Snackbar,
 } from '@mui/material'
 import {
   IconBrandLinkedin,
@@ -39,7 +42,11 @@ import {
   IconHeart,
   IconMessage,
   IconShare,
+  IconSparkles,
+  IconRocket,
+  IconCalendar,
 } from '@tabler/icons-react'
+import type { SocialPost, SocialBatch } from '@/lib/ai/schemas'
 
 interface Platform {
   id: string
@@ -178,15 +185,361 @@ const STATUS_CONFIG = {
   draft: { bg: '#F2F6FA', color: '#5A6A85', label: 'Draft' },
 }
 
+interface AIIntakeForm {
+  milestones: string
+  metrics: string
+  eventDates: string
+  productNotes: string
+  channels: { linkedin: boolean; twitter: boolean }
+  tone: 'technical' | 'founder' | 'growth'
+  postCount: number
+}
+
+const DEFAULT_INTAKE: AIIntakeForm = {
+  milestones: '',
+  metrics: '',
+  eventDates: '',
+  productNotes: '',
+  channels: { linkedin: true, twitter: false },
+  tone: 'founder',
+  postCount: 6,
+}
+
+function AIContentDialog({
+  open,
+  onClose,
+  companyName,
+  onAddPosts,
+}: {
+  open: boolean
+  onClose: () => void
+  companyName: string
+  onAddPosts: (posts: Post[]) => void
+}) {
+  const [intake, setIntake] = useState<AIIntakeForm>(DEFAULT_INTAKE)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [batch, setBatch] = useState<SocialBatch | null>(null)
+  const [approved, setApproved] = useState<Set<number>>(new Set())
+
+  const handleGenerate = async () => {
+    setError('')
+    setLoading(true)
+    setBatch(null)
+    setApproved(new Set())
+
+    const channels: ('linkedin' | 'twitter')[] = []
+    if (intake.channels.linkedin) channels.push('linkedin')
+    if (intake.channels.twitter) channels.push('twitter')
+    if (channels.length === 0) {
+      setError('Select at least one channel.')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/ai/social', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          milestones: intake.milestones,
+          metrics: intake.metrics,
+          eventDates: intake.eventDates,
+          productNotes: intake.productNotes,
+          channels,
+          tone: intake.tone,
+          companyName: companyName || 'our startup',
+          postCount: intake.postCount,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to generate content.')
+      } else {
+        setBatch(data.batch)
+        // Pre-approve all
+        setApproved(new Set(data.batch.posts.map((_: SocialPost, i: number) => i)))
+      }
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleApprove = (i: number) => {
+    setApproved((prev) => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  const handleSchedule = () => {
+    if (!batch) return
+    const newPosts: Post[] = batch.posts
+      .filter((_, i) => approved.has(i))
+      .map((p, i) => {
+        const platformConfig = PLATFORMS.find((pl) => pl.id === p.platform)
+        const schedDate = batch.suggested_schedule[i]
+        const date = schedDate
+          ? new Date(schedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'Draft'
+        return {
+          id: `ai-${Date.now()}-${i}`,
+          platform: p.platform === 'linkedin' ? 'LinkedIn' : 'Twitter / X',
+          platformIcon: p.platform === 'linkedin'
+            ? <IconBrandLinkedin size={16} />
+            : <IconBrandTwitter size={16} />,
+          platformColor: platformConfig?.color ?? '#5D87FF',
+          content: p.content,
+          date,
+          status: 'scheduled' as const,
+        }
+      })
+    onAddPosts(newPosts)
+    onClose()
+    setIntake(DEFAULT_INTAKE)
+    setBatch(null)
+  }
+
+  const canGenerate = (intake.milestones.trim() || intake.metrics.trim()) && !loading
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: '14px' } }}
+    >
+      <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconSparkles size={18} color="#fff" />
+        </Box>
+        AI Content Generator
+      </DialogTitle>
+      <DialogContent>
+        {!batch ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+            <Typography variant="body2" sx={{ color: '#5A6A85' }}>
+              Describe your milestones and metrics — AI will generate a batch of ready-to-post content.
+            </Typography>
+
+            <TextField
+              label="Milestones & Events"
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="Closed seed round, launched V2, signed 3 enterprise customers, spoke at TechCrunch..."
+              value={intake.milestones}
+              onChange={(e) => setIntake({ ...intake, milestones: e.target.value })}
+            />
+
+            <TextField
+              label="Key Metrics"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="MRR $24K (+18% MoM), 1,243 paying customers, NPS 72, churn 2.1%..."
+              value={intake.metrics}
+              onChange={(e) => setIntake({ ...intake, metrics: e.target.value })}
+            />
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Upcoming Dates (optional)"
+                  fullWidth
+                  size="small"
+                  placeholder="Demo Day: Apr 5, Product Hunt launch: Apr 10"
+                  value={intake.eventDates}
+                  onChange={(e) => setIntake({ ...intake, eventDates: e.target.value })}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Product Notes (optional)"
+                  fullWidth
+                  size="small"
+                  placeholder="New AI feature, integration with Salesforce..."
+                  value={intake.productNotes}
+                  onChange={(e) => setIntake({ ...intake, productNotes: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={2} alignItems="center">
+              <Grid size={{ xs: 12, sm: 5 }}>
+                <TextField
+                  label="Tone"
+                  select
+                  fullWidth
+                  size="small"
+                  value={intake.tone}
+                  onChange={(e) => setIntake({ ...intake, tone: e.target.value as AIIntakeForm['tone'] })}
+                >
+                  <MenuItem value="founder">Founder (authentic, story-driven)</MenuItem>
+                  <MenuItem value="growth">Growth (metrics-focused)</MenuItem>
+                  <MenuItem value="technical">Technical (deep-dive)</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <TextField
+                  label="# of Posts"
+                  select
+                  fullWidth
+                  size="small"
+                  value={intake.postCount}
+                  onChange={(e) => setIntake({ ...intake, postCount: Number(e.target.value) })}
+                >
+                  {[3, 5, 6, 8, 10].map((n) => <MenuItem key={n} value={n}>{n} posts</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={intake.channels.linkedin} onChange={(e) => setIntake({ ...intake, channels: { ...intake.channels, linkedin: e.target.checked } })} />}
+                    label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><IconBrandLinkedin size={15} color="#0077B5" /><Typography variant="caption" sx={{ fontWeight: 600 }}>LinkedIn</Typography></Box>}
+                  />
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={intake.channels.twitter} onChange={(e) => setIntake({ ...intake, channels: { ...intake.channels, twitter: e.target.checked } })} />}
+                    label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><IconBrandTwitter size={15} color="#1DA1F2" /><Typography variant="caption" sx={{ fontWeight: 600 }}>Twitter</Typography></Box>}
+                  />
+                </Box>
+              </Grid>
+            </Grid>
+
+            {error && (
+              <Alert severity="error" sx={{ borderRadius: '8px', fontSize: '0.8125rem' }}>
+                {error}
+              </Alert>
+            )}
+          </Box>
+        ) : (
+          <Box sx={{ pt: 1 }}>
+            <Box sx={{ p: 1.5, bgcolor: '#E6FFFA', borderRadius: '8px', border: '1px solid #13DEB940', mb: 2 }}>
+              <Typography variant="body2" sx={{ color: '#02b3a9', fontWeight: 600 }}>
+                Theme: {batch.theme}
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ color: '#5A6A85', mb: 2 }}>
+              Review and approve posts to add to your calendar. Deselect any you don&apos;t want.
+            </Typography>
+            <Stack spacing={1.5}>
+              {batch.posts.map((post, i) => {
+                const isApproved = approved.has(i)
+                const Icon = post.platform === 'linkedin' ? IconBrandLinkedin : IconBrandTwitter
+                const color = post.platform === 'linkedin' ? '#0077B5' : '#1DA1F2'
+                const schedDate = batch.suggested_schedule[i]
+                const dateStr = schedDate
+                  ? new Date(schedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  : '—'
+                return (
+                  <Box
+                    key={i}
+                    sx={{
+                      p: 2,
+                      borderRadius: '10px',
+                      border: '1.5px solid',
+                      borderColor: isApproved ? '#2563EB40' : '#e5eaef',
+                      bgcolor: isApproved ? 'rgba(37,99,235,0.03)' : '#FAFBFD',
+                      opacity: isApproved ? 1 : 0.6,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                      <Checkbox
+                        size="small"
+                        checked={isApproved}
+                        onChange={() => toggleApprove(i)}
+                        sx={{ p: 0, mt: 0.25, color: '#DDE3EE', '&.Mui-checked': { color: '#2563EB' } }}
+                      />
+                      <Box sx={{ flex: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
+                          <Icon size={14} color={color} />
+                          <Typography variant="caption" sx={{ fontWeight: 700, color, textTransform: 'capitalize' }}>
+                            {post.platform}
+                          </Typography>
+                          <Chip label={post.tone} size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#F2F6FA', color: '#7C8FAC', '& .MuiChip-label': { px: '5px' } }} />
+                          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <IconCalendar size={12} color="#7C8FAC" />
+                            <Typography variant="caption" sx={{ color: '#7C8FAC' }}>{dateStr}</Typography>
+                          </Box>
+                        </Box>
+                        <Typography variant="body2" sx={{ color: '#2A3547', lineHeight: 1.65, fontSize: '0.8125rem' }}>
+                          {post.content}
+                        </Typography>
+                        {post.tags?.length > 0 && (
+                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.75, flexWrap: 'wrap' }}>
+                            {post.tags.map((tag) => (
+                              <Typography key={tag} variant="caption" sx={{ color: '#5D87FF', fontSize: '0.7rem' }}>
+                                #{tag}
+                              </Typography>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
+                )
+              })}
+            </Stack>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button onClick={() => { onClose(); setBatch(null); setIntake(DEFAULT_INTAKE) }} sx={{ color: '#5A6A85' }}>
+          Cancel
+        </Button>
+        {!batch ? (
+          <Button
+            variant="contained"
+            disabled={!canGenerate}
+            onClick={handleGenerate}
+            startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <IconRocket size={16} />}
+            sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', fontWeight: 700, px: 3 }}
+          >
+            {loading ? 'Generating…' : `Generate ${intake.postCount} Posts`}
+          </Button>
+        ) : (
+          <>
+            <Button variant="outlined" onClick={() => { setBatch(null); setError('') }} sx={{ borderColor: '#DDE3EE', color: '#5A6A85' }}>
+              ← Regenerate
+            </Button>
+            <Button
+              variant="contained"
+              disabled={approved.size === 0}
+              onClick={handleSchedule}
+              startIcon={<IconCalendar size={16} />}
+              sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', fontWeight: 700, px: 3 }}
+            >
+              Schedule {approved.size} Post{approved.size !== 1 ? 's' : ''}
+            </Button>
+          </>
+        )}
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 export default function SocialMediaPage() {
   const [connectedPlatforms, setConnectedPlatforms] = useState<Set<string>>(new Set(['linkedin']))
   const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null)
   const [createPostOpen, setCreatePostOpen] = useState(false)
+  const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
   const [viewingPost, setViewingPost] = useState<Post | null>(null)
   const [newPost, setNewPost] = useState({ platform: 'linkedin', content: '', scheduleDate: '' })
   const [userPosts, setUserPosts] = useState<Post[]>([])
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' })
 
   const allPosts = [...userPosts, ...RECENT_POSTS]
+
+  const handleAddAIPosts = (posts: Post[]) => {
+    setUserPosts((prev) => [...posts, ...prev])
+    setSnackbar({ open: true, message: `${posts.length} AI-generated post${posts.length !== 1 ? 's' : ''} added to your schedule!` })
+  }
 
   const handleConnect = (platform: Platform) => {
     const isConnected = connectedPlatforms.has(platform.id)
@@ -227,16 +580,65 @@ export default function SocialMediaPage() {
             Manage your founder brand and attract inbound investor interest
           </Typography>
         </Box>
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="contained"
+            startIcon={<IconSparkles size={16} />}
+            onClick={() => setAiGeneratorOpen(true)}
+            sx={{
+              background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+              fontWeight: 700,
+            }}
+          >
+            AI Generate
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<IconPlus size={16} />}
+            onClick={() => setCreatePostOpen(true)}
+            sx={{ borderColor: '#5D87FF', color: '#5D87FF', '&:hover': { bgcolor: '#ECF2FF' } }}
+          >
+            Create Post
+          </Button>
+        </Stack>
+      </Box>
+
+      {/* AI Content Generator Banner */}
+      <Box
+        sx={{
+          mb: 3,
+          p: 2.5,
+          borderRadius: '14px',
+          background: 'linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(16,185,129,0.06) 100%)',
+          border: '1px solid rgba(37,99,235,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ width: 44, height: 44, borderRadius: '12px', background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <IconSparkles size={22} color="#fff" />
+          </Box>
+          <Box>
+            <Typography sx={{ fontWeight: 700, color: '#2A3547', fontSize: '0.9375rem' }}>
+              AI Social Content Cycle
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#5A6A85' }}>
+              Turn your milestones and metrics into a full week of investor-attracting posts
+            </Typography>
+          </Box>
+        </Box>
         <Button
           variant="contained"
-          startIcon={<IconPlus size={18} />}
-          onClick={() => setCreatePostOpen(true)}
-          sx={{
-            background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-            boxShadow: '0 4px 12px rgba(93, 135, 255, 0.3)',
-          }}
+          startIcon={<IconRocket size={16} />}
+          onClick={() => setAiGeneratorOpen(true)}
+          sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', fontWeight: 700, borderRadius: '10px', px: 3, flexShrink: 0 }}
         >
-          Create Post
+          Generate Content Batch
         </Button>
       </Box>
 
@@ -659,6 +1061,23 @@ export default function SocialMediaPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* AI Content Generator Dialog */}
+      <AIContentDialog
+        open={aiGeneratorOpen}
+        onClose={() => setAiGeneratorOpen(false)}
+        companyName="RaiseOps"
+        onAddPosts={handleAddAIPosts}
+      />
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ open: false, message: '' })}
+        message={snackbar.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      />
 
       {/* Post Detail Dialog */}
       <Dialog

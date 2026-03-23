@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Logo from '@/components/layout/Logo'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -22,7 +22,7 @@ import {
 import { IconEye, IconEyeOff, IconBrandGoogle } from '@tabler/icons-react'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -232,5 +232,13 @@ export default function LoginPage() {
         </Box>
       </CardContent>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

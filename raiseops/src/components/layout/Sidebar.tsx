@@ -26,6 +26,8 @@ import {
   IconSettings,
   IconLogout,
   IconChevronRight,
+  IconRocket,
+  IconChartBar,
 } from '@tabler/icons-react'
 import Logo from './Logo'
 import { createClient } from '@/lib/supabase/client'
@@ -61,9 +63,23 @@ const NAV_ITEMS: NavItem[] = [
     icon: <IconCalendar size={20} />,
   },
   {
+    label: 'AI Brief Builder',
+    href: '/raise',
+    icon: <IconRocket size={20} />,
+    badge: 'AI',
+  },
+]
+
+const TOOL_ITEMS: NavItem[] = [
+  {
     label: 'Social Media',
     href: '/social',
     icon: <IconBrandLinkedin size={20} />,
+  },
+  {
+    label: 'Analytics',
+    href: '/analytics',
+    icon: <IconChartBar size={20} />,
   },
   {
     label: 'Settings',
@@ -146,7 +162,7 @@ function SidebarContent() {
         </Typography>
 
         <List disablePadding>
-          {NAV_ITEMS.slice(0, 4).map((item) => (
+          {NAV_ITEMS.map((item) => (
             <ListItem key={item.href} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 component={Link}
@@ -186,7 +202,24 @@ function SidebarContent() {
                     fontWeight: isActive(item.href) ? 600 : 400,
                   }}
                 />
-                {isActive(item.href) && (
+                {item.badge && (
+                  <Box
+                    sx={{
+                      px: 0.75,
+                      py: 0.1,
+                      borderRadius: '6px',
+                      background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+                      fontSize: '0.55rem',
+                      fontWeight: 800,
+                      color: '#fff',
+                      letterSpacing: '0.03em',
+                      lineHeight: '1.6',
+                    }}
+                  >
+                    {item.badge}
+                  </Box>
+                )}
+                {!item.badge && isActive(item.href) && (
                   <Box
                     sx={{
                       width: 4,
@@ -219,7 +252,7 @@ function SidebarContent() {
         </Typography>
 
         <List disablePadding>
-          {NAV_ITEMS.slice(4).map((item) => (
+          {TOOL_ITEMS.map((item) => (
             <ListItem key={item.href} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 component={Link}
