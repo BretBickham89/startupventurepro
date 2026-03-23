@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import {
   Box,
@@ -728,6 +729,8 @@ export default function SettingsPage() {
                   </Stack>
 
                   <Button
+                    component={Link}
+                    href="/#pricing"
                     variant="contained"
                     fullWidth
                     sx={{ background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)', py: 1.25 }}

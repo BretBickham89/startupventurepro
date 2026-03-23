@@ -285,6 +285,8 @@ function SidebarContent() {
             Get unlimited investor searches and AI scoring
           </Typography>
           <Button
+            component={Link}
+            href="/#pricing"
             fullWidth
             variant="contained"
             size="small"

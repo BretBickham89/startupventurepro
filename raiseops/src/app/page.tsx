@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Logo from '@/components/layout/Logo'
+import PricingSection from '@/components/marketing/PricingSection'
 import {
   AppBar,
   Toolbar,
@@ -127,64 +128,6 @@ const TESTIMONIALS = [
   },
 ]
 
-const PRICING_TIERS = [
-  {
-    name: 'Starter',
-    price: '$49',
-    period: '/month',
-    description: 'Perfect for founders just starting their fundraising journey',
-    features: [
-      '50 investor searches per month',
-      'Basic CRM pipeline (up to 25 contacts)',
-      '10 scheduled social posts',
-      'Email support',
-      'Basic analytics',
-      'Content calendar',
-    ],
-    cta: 'Start Free Trial',
-    highlighted: false,
-    color: '#2563EB',
-  },
-  {
-    name: 'Growth',
-    price: '$149',
-    period: '/month',
-    description: 'For founders actively in fundraising mode',
-    features: [
-      'Unlimited investor searches',
-      'Full CRM pipeline (unlimited contacts)',
-      '100 scheduled posts per month',
-      'AI match scoring',
-      'Advanced analytics & reporting',
-      'Priority email & chat support',
-      'Meeting scheduler integration',
-      'Investor email templates',
-    ],
-    cta: 'Start Free Trial',
-    highlighted: true,
-    badge: 'Most Popular',
-    color: '#2563EB',
-  },
-  {
-    name: 'Scale',
-    price: '$399',
-    period: '/month',
-    description: 'For high-growth startups with dedicated fundraising teams',
-    features: [
-      'Everything in Growth',
-      'White glove onboarding',
-      'Custom integrations (Salesforce, HubSpot)',
-      'Dedicated success manager',
-      'Custom investor data exports',
-      'Team collaboration (up to 5 seats)',
-      'API access',
-      'SLA guarantee',
-    ],
-    cta: 'Contact Sales',
-    highlighted: false,
-    color: '#2563EB',
-  },
-]
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -779,128 +722,7 @@ export default function LandingPage() {
       </Box>
 
       {/* PRICING SECTION */}
-      <Box id="pricing" sx={{ py: { xs: 8, md: 12 }, bgcolor: '#fff' }}>
-        <Container maxWidth="lg">
-          <Box textAlign="center" sx={{ mb: 8 }}>
-            <Chip
-              label="Pricing"
-              size="small"
-              sx={{ bgcolor: '#ECF2FF', color: '#2563EB', fontWeight: 600, mb: 2 }}
-            />
-            <Typography
-              variant="h2"
-              sx={{ fontWeight: 800, color: '#0D1B2A', mb: 2, fontSize: { xs: '1.75rem', md: '2.25rem' } }}
-            >
-              Simple, transparent pricing
-            </Typography>
-            <Typography variant="body1" sx={{ color: '#5A6A85', fontSize: '1.1rem' }}>
-              Start free, scale as you raise. No hidden fees.
-            </Typography>
-          </Box>
-
-          <Grid container spacing={3} alignItems="stretch">
-            {PRICING_TIERS.map((tier) => (
-              <Grid size={{ xs: 12, md: 4 }} key={tier.name}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    position: 'relative',
-                    border: tier.highlighted ? '2px solid #5D87FF' : '1px solid #e5eaef',
-                    boxShadow: tier.highlighted ? '0 12px 40px rgba(37, 99, 235, 0.2)' : undefined,
-                    transform: tier.highlighted ? 'scale(1.02)' : 'none',
-                    overflow: 'visible',
-                  }}
-                >
-                  {tier.badge && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: -14,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                      }}
-                    >
-                      <Chip
-                        label={tier.badge}
-                        size="small"
-                        sx={{
-                          bgcolor: '#2563EB',
-                          color: '#fff',
-                          fontWeight: 700,
-                          px: 1,
-                        }}
-                      />
-                    </Box>
-                  )}
-
-                  <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0D1B2A', mb: 0.5 }}>
-                      {tier.name}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#5A6A85', display: 'block', mb: 2 }}>
-                      {tier.description}
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 3 }}>
-                      <Typography
-                        sx={{ fontSize: '2.5rem', fontWeight: 800, color: '#0D1B2A', lineHeight: 1 }}
-                      >
-                        {tier.price}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#5A6A85' }}>
-                        {tier.period}
-                      </Typography>
-                    </Box>
-
-                    <Button
-                      component={Link}
-                      href={tier.name === 'Scale' ? '#' : '/register'}
-                      variant={tier.highlighted ? 'contained' : 'outlined'}
-                      fullWidth
-                      sx={{
-                        mb: 3,
-                        ...(tier.highlighted && {
-                          background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-                          boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
-                        }),
-                      }}
-                    >
-                      {tier.cta}
-                    </Button>
-
-                    <Divider sx={{ mb: 2 }} />
-
-                    <Stack spacing={1.5}>
-                      {tier.features.map((feature) => (
-                        <Box key={feature} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                          <Box
-                            sx={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: '50%',
-                              bgcolor: '#E6FFFA',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              mt: 0.1,
-                            }}
-                          >
-                            <IconCheck size={12} color="#13DEB9" />
-                          </Box>
-                          <Typography variant="body2" sx={{ color: '#5A6A85' }}>
-                            {feature}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
+      <PricingSection />
 
       {/* CTA BANNER */}
       <Box

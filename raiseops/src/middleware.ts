@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const PROTECTED_PATHS = ['/dashboard', '/investors', '/content', '/social', '/settings']
 const AUTH_PATHS = ['/login', '/register']
+const BYPASS_PATHS = ['/auth/callback']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -38,6 +39,9 @@ export async function middleware(request: NextRequest) {
 
   const isProtectedPath = PROTECTED_PATHS.some((path) => pathname.startsWith(path))
   const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path))
+  const isBypassPath = BYPASS_PATHS.some((path) => pathname.startsWith(path))
+
+  if (isBypassPath) return supabaseResponse
 
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()
