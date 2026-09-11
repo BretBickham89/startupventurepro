@@ -824,15 +824,32 @@ export default function LandingPage() {
             {[
               {
                 title: 'Product',
-                links: ['Investor Discovery', 'CRM Pipeline', 'Content Calendar', 'Analytics', 'Integrations'],
+                links: [
+                  { label: 'Investor Discovery', href: '/investors' },
+                  { label: 'CRM Pipeline', href: '/investors/crm' },
+                  { label: 'Content Calendar', href: '/content' },
+                  { label: 'Analytics', href: '/analytics' },
+                  { label: 'Integrations', href: '/#features' },
+                ],
               },
               {
                 title: 'Company',
-                links: ['About Us', 'Blog', 'Careers', 'Press', 'Contact'],
+                links: [
+                  { label: 'About Us', href: '/about' },
+                  { label: 'Blog', href: '/blog' },
+                  { label: 'Careers', href: '/careers' },
+                  { label: 'Press', href: '/press' },
+                  { label: 'Contact', href: '/contact' },
+                ],
               },
               {
                 title: 'Legal',
-                links: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'GDPR'],
+                links: [
+                  { label: 'Privacy Policy', href: '/privacy' },
+                  { label: 'Terms of Service', href: '/terms' },
+                  { label: 'Cookie Policy', href: '/cookies' },
+                  { label: 'GDPR', href: '/gdpr' },
+                ],
               },
             ].map((col) => (
               <Grid size={{ xs: 6, md: 2 }} key={col.title}>
@@ -845,10 +862,10 @@ export default function LandingPage() {
                 <Stack spacing={1}>
                   {col.links.map((link) => (
                     <Typography
-                      key={link}
+                      key={link.label}
                       variant="body2"
-                      component="a"
-                      href="#"
+                      component={Link}
+                      href={link.href}
                       sx={{
                         color: 'rgba(255,255,255,0.6)',
                         textDecoration: 'none',
@@ -858,7 +875,7 @@ export default function LandingPage() {
                         display: 'block',
                       }}
                     >
-                      {link}
+                      {link.label}
                     </Typography>
                   ))}
                 </Stack>

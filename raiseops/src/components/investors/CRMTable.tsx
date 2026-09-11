@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import {
   Table,
   TableBody,
@@ -18,7 +18,7 @@ import {
 import { IconMail, IconCalendar, IconNotes, IconDots } from '@tabler/icons-react'
 import type { CRMStatus } from '@/lib/supabase/types'
 
-interface CRMEntry {
+export interface CRMEntry {
   id: string
   investor_name: string
   investor_firm: string | null
@@ -30,7 +30,7 @@ interface CRMEntry {
   avatar_bg: string
 }
 
-const CRM_DATA: CRMEntry[] = [
+export const CRM_DATA: CRMEntry[] = [
   {
     id: '1',
     investor_name: 'Sarah Kim',
@@ -121,7 +121,7 @@ const CRM_DATA: CRMEntry[] = [
   },
 ]
 
-const STATUS_CONFIG: Record<
+export const STATUS_CONFIG: Record<
   CRMStatus,
   { label: string; bg: string; color: string }
 > = {
@@ -142,12 +142,11 @@ function formatAmount(amount: number | null): string {
 }
 
 interface CRMTableProps {
+  data: CRMEntry[]
   statusFilter?: CRMStatus | 'all' | 'active' | 'closed' | 'passed'
 }
 
-export default function CRMTable({ statusFilter = 'all' }: CRMTableProps) {
-  const [data] = useState(CRM_DATA)
-
+export default function CRMTable({ data, statusFilter = 'all' }: CRMTableProps) {
   const filtered =
     statusFilter === 'all'
       ? data

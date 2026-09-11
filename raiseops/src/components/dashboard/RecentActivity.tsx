@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import {
   Box,
   List,
@@ -117,7 +118,12 @@ export default function RecentActivity() {
       title="Recent Activity"
       subtitle="Your latest fundraising updates"
       action={
-        <Button size="small" sx={{ color: '#5D87FF', fontSize: '0.75rem' }}>
+        <Button
+          component={Link}
+          href="/activity"
+          size="small"
+          sx={{ color: '#5D87FF', fontSize: '0.75rem' }}
+        >
           View All
         </Button>
       }
@@ -141,6 +147,10 @@ export default function RecentActivity() {
                 </Avatar>
               </ListItemAvatar>
               <ListItemText
+                slotProps={{
+                  primary: { component: 'div' },
+                  secondary: { component: 'div' },
+                }}
                 primary={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>

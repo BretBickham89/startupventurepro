@@ -808,9 +808,11 @@ export default function SocialMediaPage() {
               <Typography variant="h6" sx={{ fontWeight: 600, color: '#2A3547', fontSize: '1rem' }}>
                 Recent Posts
               </Typography>
-              <Button size="small" sx={{ color: '#5D87FF', fontSize: '0.75rem' }}>
-                View All
-              </Button>
+              <Chip
+                label={`${allPosts.length} posts`}
+                size="small"
+                sx={{ bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 600 }}
+              />
             </Box>
             <TableContainer>
               <Table>

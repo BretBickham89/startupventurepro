@@ -140,6 +140,19 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: '',
   })
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+
+  const handleToggle2FA = () => {
+    setTwoFactorEnabled((prev) => {
+      const next = !prev
+      setSnackbar({
+        open: true,
+        message: next ? 'Two-factor authentication enabled.' : 'Two-factor authentication disabled.',
+        severity: 'success',
+      })
+      return next
+    })
+  }
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -681,14 +694,35 @@ export default function SettingsPage() {
                 Two-Factor Authentication
               </Typography>
               <Typography variant="body2" sx={{ color: '#5A6A85', mb: 2 }}>
-                Add an extra layer of security to your account.
+                {twoFactorEnabled
+                  ? 'Two-factor authentication is enabled for your account.'
+                  : 'Add an extra layer of security to your account.'}
               </Typography>
-              <Button
-                variant="outlined"
-                sx={{ borderColor: '#5D87FF', color: '#5D87FF', '&:hover': { bgcolor: '#ECF2FF' } }}
-              >
-                Enable 2FA
-              </Button>
+              {twoFactorEnabled ? (
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Chip
+                    label="Enabled"
+                    size="small"
+                    sx={{ bgcolor: '#E6FFFA', color: '#02b3a9', fontWeight: 600 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={handleToggle2FA}
+                    sx={{ '&:hover': { bgcolor: '#FDEDE8' } }}
+                  >
+                    Disable 2FA
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  variant="outlined"
+                  onClick={handleToggle2FA}
+                  sx={{ borderColor: '#5D87FF', color: '#5D87FF', '&:hover': { bgcolor: '#ECF2FF' } }}
+                >
+                  Enable 2FA
+                </Button>
+              )}
             </Box>
           </TabPanel>
 
