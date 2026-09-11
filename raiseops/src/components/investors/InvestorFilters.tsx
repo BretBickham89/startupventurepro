@@ -47,7 +47,7 @@ export interface FilterState {
   minMatchScore: number
 }
 
-const DEFAULT_FILTERS: FilterState = {
+export const DEFAULT_FILTERS: FilterState = {
   search: '',
   fundingStages: [],
   industries: [],
@@ -111,14 +111,14 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
       elevation={0}
       sx={{
         p: 2.5,
-        border: '1px solid #e5eaef',
+        border: '1px solid #E2E8F0',
         borderRadius: '12px',
         bgcolor: '#fff',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-        <IconFilter size={18} color="#5D87FF" />
-        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: '#2A3547' }}>
+        <IconFilter size={18} color="#2563EB" />
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: '#1E293B' }}>
           Filters
         </Typography>
       </Box>
@@ -134,17 +134,17 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <IconSearch size={15} color="#7C8FAC" />
+              <IconSearch size={15} color="#94A3B8" />
             </InputAdornment>
           ),
         }}
       />
 
-      <Divider sx={{ mb: 2, borderColor: '#e5eaef' }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Funding Stage */}
       <Box sx={{ mb: 2.5 }}>
-        <Typography variant="overline" sx={{ color: '#5A6A85', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
+        <Typography variant="overline" sx={{ color: '#64748B', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
           Funding Stage
         </Typography>
         <FormGroup>
@@ -156,11 +156,12 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
                   checked={filters.fundingStages.includes(stage.value)}
                   onChange={() => handleStageToggle(stage.value)}
                   size="small"
-                  sx={{ color: '#5D87FF', '&.Mui-checked': { color: '#5D87FF' }, py: 0.5 }}
+                  color="primary"
+                  sx={{ py: 0.5 }}
                 />
               }
               label={
-                <Typography variant="body2" sx={{ color: '#5A6A85', fontSize: '0.8125rem' }}>
+                <Typography variant="body2" sx={{ color: '#64748B', fontSize: '0.8125rem' }}>
                   {stage.label}
                 </Typography>
               }
@@ -169,11 +170,11 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
         </FormGroup>
       </Box>
 
-      <Divider sx={{ mb: 2, borderColor: '#e5eaef' }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Industry */}
       <Box sx={{ mb: 2.5 }}>
-        <Typography variant="overline" sx={{ color: '#5A6A85', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
+        <Typography variant="overline" sx={{ color: '#64748B', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
           Industry Focus
         </Typography>
         <FormGroup>
@@ -185,11 +186,12 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
                   checked={filters.industries.includes(industry)}
                   onChange={() => handleIndustryToggle(industry)}
                   size="small"
-                  sx={{ color: '#5D87FF', '&.Mui-checked': { color: '#5D87FF' }, py: 0.5 }}
+                  color="primary"
+                  sx={{ py: 0.5 }}
                 />
               }
               label={
-                <Typography variant="body2" sx={{ color: '#5A6A85', fontSize: '0.8125rem' }}>
+                <Typography variant="body2" sx={{ color: '#64748B', fontSize: '0.8125rem' }}>
                   {industry}
                 </Typography>
               }
@@ -198,11 +200,11 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
         </FormGroup>
       </Box>
 
-      <Divider sx={{ mb: 2, borderColor: '#e5eaef' }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Investor Type */}
       <Box sx={{ mb: 2.5 }}>
-        <Typography variant="overline" sx={{ color: '#5A6A85', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
+        <Typography variant="overline" sx={{ color: '#64748B', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 1 }}>
           Investor Type
         </Typography>
         <Select
@@ -223,18 +225,18 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
         </Select>
       </Box>
 
-      <Divider sx={{ mb: 2, borderColor: '#e5eaef' }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Investment Range */}
       <Box sx={{ mb: 2.5 }}>
-        <Typography variant="overline" sx={{ color: '#5A6A85', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+        <Typography variant="overline" sx={{ color: '#64748B', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
           Investment Range
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="caption" sx={{ color: '#5A6A85' }}>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
             {formatAmount(filters.investmentRange[0])}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#5A6A85' }}>
+          <Typography variant="caption" sx={{ color: '#64748B' }}>
             {formatAmount(filters.investmentRange[1])}
           </Typography>
         </Box>
@@ -251,18 +253,16 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
           min={10000}
           max={10000000}
           step={50000}
-          sx={{
-            color: '#5D87FF',
-            '& .MuiSlider-thumb': { width: 14, height: 14 },
-          }}
+          color="primary"
+          sx={{ '& .MuiSlider-thumb': { width: 14, height: 14 } }}
         />
       </Box>
 
-      <Divider sx={{ mb: 2, borderColor: '#e5eaef' }} />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Match Score */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="overline" sx={{ color: '#5A6A85', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
+        <Typography variant="overline" sx={{ color: '#64748B', fontWeight: 600, fontSize: '0.65rem', display: 'block', mb: 0.5 }}>
           Min Match Score: {filters.minMatchScore}%
         </Typography>
         <Slider
@@ -278,24 +278,13 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
           min={0}
           max={100}
           step={5}
-          sx={{
-            color: '#5D87FF',
-            '& .MuiSlider-thumb': { width: 14, height: 14 },
-          }}
+          color="primary"
+          sx={{ '& .MuiSlider-thumb': { width: 14, height: 14 } }}
         />
       </Box>
 
       {/* Action Buttons */}
-      <Button
-        fullWidth
-        variant="contained"
-        onClick={handleApply}
-        sx={{
-          background: 'linear-gradient(135deg, #5D87FF 0%, #49BEFF 100%)',
-          mb: 1,
-          boxShadow: '0 4px 12px rgba(93, 135, 255, 0.25)',
-        }}
-      >
+      <Button fullWidth variant="contained" color="primary" onClick={handleApply} sx={{ mb: 1 }}>
         Apply Filters
       </Button>
       <Button
@@ -303,7 +292,7 @@ export default function InvestorFilters({ onFilterChange }: InvestorFiltersProps
         variant="outlined"
         startIcon={<IconRefresh size={16} />}
         onClick={handleReset}
-        sx={{ borderColor: '#e5eaef', color: '#5A6A85', '&:hover': { borderColor: '#5D87FF', color: '#5D87FF' } }}
+        sx={{ borderColor: '#E2E8F0', color: '#64748B', '&:hover': { borderColor: '#2563EB', color: '#2563EB' } }}
       >
         Reset
       </Button>

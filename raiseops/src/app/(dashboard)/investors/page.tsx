@@ -39,9 +39,15 @@ import {
   IconCopy,
   IconCheck,
   IconX,
+  IconActivity,
+  IconFilterX,
+  IconPlus,
 } from '@tabler/icons-react'
 import InvestorCard, { type PipelineStatus } from '@/components/investors/InvestorCard'
-import InvestorFilters, { type FilterState } from '@/components/investors/InvestorFilters'
+import InvestorFilters, { DEFAULT_FILTERS, type FilterState } from '@/components/investors/InvestorFilters'
+import MatchScoreRing from '@/components/investors/MatchScoreRing'
+import FitBar from '@/components/investors/FitBar'
+import { getMatchReasons, getFitScores, getRecentActivity } from '@/lib/investors/insights'
 import type { Investor } from '@/lib/supabase/types'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -311,6 +317,12 @@ export default function InvestorsPage() {
     subject: '',
     message: '',
   })
+  const [filtersResetKey, setFiltersResetKey] = useState(0)
+
+  const handleClearFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setFiltersResetKey((k) => k + 1)
+  }
 
   const filteredInvestors = useMemo(() => {
     let result = [...MOCK_INVESTORS]
@@ -450,7 +462,7 @@ export default function InvestorsPage() {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#2A3547' }}>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#1E293B' }}>
               Investor Discovery
             </Typography>
             <Chip
@@ -467,7 +479,7 @@ export default function InvestorsPage() {
               }}
             />
           </Box>
-          <Typography variant="body2" sx={{ color: '#5A6A85' }}>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
             Your AI fundraising engine — find, match, and reach the right investors
           </Typography>
         </Box>
@@ -485,26 +497,26 @@ export default function InvestorsPage() {
           p: 2,
           bgcolor: '#fff',
           borderRadius: '12px',
-          border: '1px solid #e5eaef',
+          border: '1px solid #E2E8F0',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconBuildingBank size={18} color="#5D87FF" />
-            <Typography variant="body2" sx={{ color: '#5A6A85' }}>
-              <Box component="strong" sx={{ color: '#2A3547' }}>2,847</Box> investors in database
+            <IconBuildingBank size={18} color="#2563EB" />
+            <Typography variant="body2" sx={{ color: '#64748B' }}>
+              <Box component="strong" sx={{ color: '#1E293B' }}>2,847</Box> investors in database
             </Typography>
           </Box>
           <Chip
             label={`${filteredInvestors.length} matches`}
             size="small"
-            sx={{ bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 600 }}
+            sx={{ bgcolor: '#EFF6FF', color: '#2563EB', fontWeight: 600 }}
           />
           {selectedIds.size > 0 && (
             <Chip
               label={`${selectedIds.size} selected`}
               size="small"
-              sx={{ bgcolor: '#E6FFFA', color: '#13DEB9', fontWeight: 600 }}
+              sx={{ bgcolor: '#ECFDF5', color: '#0F9D6E', fontWeight: 600 }}
             />
           )}
         </Box>
@@ -527,7 +539,7 @@ export default function InvestorsPage() {
       <Grid container spacing={2.5}>
         {/* Filters Panel */}
         <Grid size={{ xs: 12, md: 3 }}>
-          <InvestorFilters onFilterChange={setFilters} />
+          <InvestorFilters key={filtersResetKey} onFilterChange={setFilters} />
         </Grid>
 
         {/* Investor Grid */}
@@ -545,7 +557,7 @@ export default function InvestorsPage() {
                   p: 1.75,
                   bgcolor: '#fff',
                   borderRadius: '12px',
-                  border: '1px solid #e5eaef',
+                  border: '1px solid #E2E8F0',
                 }}
               >
                 <Tooltip title={allSelected ? 'Deselect all' : 'Select all'}>
@@ -554,11 +566,12 @@ export default function InvestorsPage() {
                     indeterminate={someSelected}
                     onChange={handleSelectAll}
                     size="small"
-                    sx={{ p: 0.25, color: '#DDE3EE', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#5D87FF' } }}
+                    color="primary"
+                    sx={{ p: 0.25 }}
                   />
                 </Tooltip>
 
-                <Typography sx={{ fontSize: '0.8rem', color: '#5A6A85', mr: 0.5 }}>
+                <Typography sx={{ fontSize: '0.8rem', color: '#64748B', mr: 0.5 }}>
                   {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Bulk actions:'}
                 </Typography>
 
@@ -569,10 +582,9 @@ export default function InvestorsPage() {
                   onClick={handleGenerateTop10}
                   sx={{
                     fontSize: '0.75rem',
-                    borderColor: '#DDE3EE',
-                    color: '#5A6A85',
-                    borderRadius: '8px',
-                    '&:hover': { borderColor: '#5D87FF', color: '#5D87FF', bgcolor: '#ECF2FF' },
+                    borderColor: '#E2E8F0',
+                    color: '#64748B',
+                    '&:hover': { borderColor: '#2563EB', color: '#2563EB', bgcolor: '#EFF6FF' },
                   }}
                 >
                   Generate Top 10
@@ -586,7 +598,6 @@ export default function InvestorsPage() {
                   disabled={selectedIds.size === 0}
                   sx={{
                     fontSize: '0.75rem',
-                    borderRadius: '8px',
                     ...(selectedIds.size > 0
                       ? {
                           background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
@@ -594,7 +605,7 @@ export default function InvestorsPage() {
                           border: 'none',
                           '&:hover': { background: 'linear-gradient(135deg, #1d4ed8 0%, #059669 100%)', border: 'none' },
                         }
-                      : { borderColor: '#DDE3EE', color: '#AABACF' }),
+                      : { borderColor: '#E2E8F0', color: '#CBD5E1' }),
                   }}
                 >
                   Generate Outreach{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
@@ -607,10 +618,9 @@ export default function InvestorsPage() {
                   onClick={handleBuildPitchList}
                   sx={{
                     fontSize: '0.75rem',
-                    borderColor: '#DDE3EE',
-                    color: '#5A6A85',
-                    borderRadius: '8px',
-                    '&:hover': { borderColor: '#10B981', color: '#10B981', bgcolor: '#E6FFFA' },
+                    borderColor: '#E2E8F0',
+                    color: '#64748B',
+                    '&:hover': { borderColor: '#10B981', color: '#10B981', bgcolor: '#ECFDF5' },
                   }}
                 >
                   Build Pitch List
@@ -626,16 +636,25 @@ export default function InvestorsPage() {
                 py: 8,
                 bgcolor: '#fff',
                 borderRadius: '12px',
-                border: '1px solid #e5eaef',
+                border: '1px solid #E2E8F0',
               }}
             >
-              <IconBuildingBank size={48} color="#DFE5EF" />
-              <Typography variant="h6" sx={{ color: '#5A6A85', mt: 2 }}>
+              <IconBuildingBank size={40} color="#CBD5E1" />
+              <Typography variant="h6" sx={{ color: '#334155', mt: 2, fontSize: '1rem', fontWeight: 700 }}>
                 No investors match your filters
               </Typography>
-              <Typography variant="body2" sx={{ color: '#7C8FAC', mt: 0.5 }}>
-                Try adjusting your filter criteria
+              <Typography variant="body2" sx={{ color: '#94A3B8', mt: 0.5, mb: 2.5 }}>
+                Try widening your funding stage, industry, or match score criteria
               </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<IconFilterX size={15} />}
+                onClick={handleClearFilters}
+                sx={{ borderColor: '#E2E8F0', color: '#334155', '&:hover': { borderColor: '#2563EB', color: '#2563EB', bgcolor: '#EFF6FF' } }}
+              >
+                Clear All Filters
+              </Button>
             </Box>
           ) : (
             <Grid container spacing={2.5}>
@@ -852,53 +871,80 @@ export default function InvestorsPage() {
             <DialogTitle sx={{ pb: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                 <Avatar
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(viewingInvestor.name)}&background=ECF2FF&color=5D87FF&bold=true&size=80`}
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(viewingInvestor.name)}&background=EFF6FF&color=2563EB&bold=true&size=80`}
                   alt={viewingInvestor.name}
-                  sx={{ width: 64, height: 64, borderRadius: '14px', border: '2px solid #e5eaef' }}
+                  sx={{ width: 60, height: 60, borderRadius: '14px', border: '1px solid #E2E8F0' }}
                 />
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#2A3547' }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#1E293B' }}>
                     {viewingInvestor.name}
                   </Typography>
                   {viewingInvestor.firm && (
-                    <Typography variant="body2" sx={{ color: '#5A6A85', fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 500 }}>
                       {viewingInvestor.firm}
                     </Typography>
                   )}
                   <Chip
                     label={TYPE_LABELS[viewingInvestor.investor_type] ?? viewingInvestor.investor_type}
                     size="small"
-                    sx={{ mt: 0.5, bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 600, fontSize: '0.7rem' }}
+                    sx={{ mt: 0.5, bgcolor: '#F1F5F9', color: '#64748B', fontWeight: 600, fontSize: '0.7rem' }}
                   />
                 </Box>
-                <Box
-                  sx={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '50%',
-                    bgcolor: viewingInvestor.match_score >= 80 ? '#E6FFFA' : '#FEF5E5',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: `2px solid ${viewingInvestor.match_score >= 80 ? '#13DEB9' : '#FFAE1F'}`,
-                    flexShrink: 0,
-                  }}
-                >
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: viewingInvestor.match_score >= 80 ? '#13DEB9' : '#FFAE1F', lineHeight: 1 }}>
-                    {viewingInvestor.match_score}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.6rem', color: '#7C8FAC', lineHeight: 1 }}>fit</Typography>
-                </Box>
+                <MatchScoreRing score={viewingInvestor.match_score} size={52} />
               </Box>
             </DialogTitle>
 
             <DialogContent sx={{ pt: 2 }}>
               {viewingInvestor.bio && (
-                <Typography variant="body2" sx={{ color: '#5A6A85', lineHeight: 1.7, mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#64748B', lineHeight: 1.7, mb: 2 }}>
                   {viewingInvestor.bio}
                 </Typography>
               )}
+
+              {/* ── Why this investor ─────────────────── */}
+              <Box
+                sx={{
+                  bgcolor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '10px',
+                  p: 1.75,
+                  mb: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+                  <IconSparkles size={14} color="#2563EB" />
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Why this investor
+                  </Typography>
+                </Box>
+                <Stack spacing={0.75}>
+                  {getMatchReasons(viewingInvestor).map((reason, i) => (
+                    <Box key={i} sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
+                      <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#2563EB', mt: '7px', flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.55 }}>{reason}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* ── Match breakdown ───────────────────── */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em', mb: 1 }}>
+                  Match Breakdown
+                </Typography>
+                <Stack spacing={0.9}>
+                  {(() => {
+                    const fit = getFitScores(viewingInvestor)
+                    return (
+                      <>
+                        <FitBar label="Industry Fit" value={fit.industry} />
+                        <FitBar label="Stage Fit" value={fit.stage} />
+                        <FitBar label="Check Size Fit" value={fit.checkSize} />
+                      </>
+                    )
+                  })()}
+                </Stack>
+              </Box>
 
               <Divider sx={{ mb: 2 }} />
 
@@ -906,10 +952,10 @@ export default function InvestorsPage() {
                 {viewingInvestor.location && (
                   <Grid size={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <IconMapPin size={16} color="#7C8FAC" />
+                      <IconMapPin size={16} color="#94A3B8" />
                       <Box>
-                        <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Location</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>{viewingInvestor.location}</Typography>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block' }}>Location</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E293B' }}>{viewingInvestor.location}</Typography>
                       </Box>
                     </Box>
                   </Grid>
@@ -917,10 +963,10 @@ export default function InvestorsPage() {
                 {viewingInvestor.portfolio_count && (
                   <Grid size={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <IconBriefcase size={16} color="#7C8FAC" />
+                      <IconBriefcase size={16} color="#94A3B8" />
                       <Box>
-                        <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Portfolio</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>{viewingInvestor.portfolio_count} companies</Typography>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block' }}>Portfolio</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E293B' }}>{viewingInvestor.portfolio_count} companies</Typography>
                       </Box>
                     </Box>
                   </Grid>
@@ -928,8 +974,8 @@ export default function InvestorsPage() {
                 {viewingInvestor.investment_range_min && (
                   <Grid size={6}>
                     <Box>
-                      <Typography variant="caption" sx={{ color: '#7C8FAC', display: 'block' }}>Check Size</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#2A3547' }}>
+                      <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block' }}>Check Size</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E293B' }}>
                         {viewingInvestor.investment_range_min >= 1000000
                           ? `$${(viewingInvestor.investment_range_min / 1000000).toFixed(1)}M`
                           : `$${(viewingInvestor.investment_range_min / 1000).toFixed(0)}K`}
@@ -946,23 +992,41 @@ export default function InvestorsPage() {
               </Grid>
 
               <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{ color: '#7C8FAC', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
+                <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
                   Focus Areas
                 </Typography>
                 <Stack direction="row" flexWrap="wrap" gap={0.75}>
                   {viewingInvestor.focus_areas.map((area) => (
-                    <Chip key={area} label={area} size="small" sx={{ bgcolor: '#ECF2FF', color: '#5D87FF', fontWeight: 500, fontSize: '0.75rem' }} />
+                    <Chip key={area} label={area} size="small" sx={{ bgcolor: '#EFF6FF', color: '#2563EB', fontWeight: 500, fontSize: '0.75rem' }} />
                   ))}
                 </Stack>
               </Box>
 
-              <Box>
-                <Typography variant="caption" sx={{ color: '#7C8FAC', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
                   Stages
                 </Typography>
                 <Stack direction="row" flexWrap="wrap" gap={0.75}>
                   {viewingInvestor.funding_stages.map((stage) => (
-                    <Chip key={stage} label={stage.charAt(0).toUpperCase() + stage.slice(1).replace('-', ' ')} size="small" variant="outlined" sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }} />
+                    <Chip key={stage} label={stage.charAt(0).toUpperCase() + stage.slice(1).replace('-', ' ')} size="small" variant="outlined" sx={{ borderColor: '#E2E8F0', color: '#64748B', fontSize: '0.75rem' }} />
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* ── Recent activity ───────────────────── */}
+              <Box>
+                <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 0.75 }}>
+                  Recent Activity
+                </Typography>
+                <Stack spacing={0.75}>
+                  {getRecentActivity(viewingInvestor).map((item, i) => (
+                    <Box key={i} sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
+                      <IconActivity size={13} color="#94A3B8" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#334155', lineHeight: 1.5 }}>{item.text}</Typography>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.date}</Typography>
+                      </Box>
+                    </Box>
                   ))}
                 </Stack>
               </Box>
@@ -972,7 +1036,7 @@ export default function InvestorsPage() {
                   <Divider sx={{ mt: 2, mb: 2 }} />
                   <Stack direction="row" spacing={1.5}>
                     {viewingInvestor.email && (
-                      <Button size="small" variant="outlined" startIcon={<IconMail size={15} />} href={`mailto:${viewingInvestor.email}`} sx={{ borderColor: '#e5eaef', color: '#5A6A85', fontSize: '0.75rem' }}>
+                      <Button size="small" variant="outlined" startIcon={<IconMail size={15} />} href={`mailto:${viewingInvestor.email}`} sx={{ borderColor: '#E2E8F0', color: '#64748B', fontSize: '0.75rem' }}>
                         {viewingInvestor.email}
                       </Button>
                     )}
@@ -987,7 +1051,7 @@ export default function InvestorsPage() {
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-              <Button onClick={() => setViewingInvestor(null)} sx={{ color: '#5A6A85', borderRadius: '8px' }}>Close</Button>
+              <Button onClick={() => setViewingInvestor(null)} sx={{ color: '#64748B' }}>Close</Button>
               <Button
                 variant="outlined"
                 onClick={() => {
@@ -995,24 +1059,25 @@ export default function InvestorsPage() {
                   setViewingInvestor(null)
                 }}
                 startIcon={<IconRocket size={15} />}
-                sx={{ borderRadius: '8px', borderColor: '#2563EB', color: '#2563EB' }}
+                sx={{ borderColor: '#2563EB', color: '#2563EB' }}
               >
                 Generate Intro
               </Button>
               {!savedInvestors.has(viewingInvestor.id) ? (
                 <Button
                   variant="contained"
+                  color="primary"
                   onClick={() => {
                     handleSaveToCRM(viewingInvestor)
                     setViewingInvestor(null)
                   }}
-                  sx={{ background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)', borderRadius: '8px' }}
+                  startIcon={<IconPlus size={15} />}
                 >
-                  + Save to CRM
+                  Save to CRM
                 </Button>
               ) : (
-                <Button variant="outlined" disabled sx={{ borderColor: '#13DEB9', color: '#13DEB9', borderRadius: '8px' }}>
-                  ✓ Saved to CRM
+                <Button variant="outlined" disabled startIcon={<IconCheck size={15} />} sx={{ borderColor: '#A7F3D0', color: '#0F9D6E' }}>
+                  Saved to CRM
                 </Button>
               )}
             </DialogActions>
